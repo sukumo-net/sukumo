@@ -17,8 +17,6 @@
         <a href="#dashboard">dashboard</a>
         <a href="#contribute">contribute</a>
         <a href="#recipe">recipe</a>
-        <a href="#data">data</a>
-        <a href="#manual">manual</a>
         <a href="#build">build</a>
       </nav>
     </div>
@@ -27,13 +25,13 @@
   <main id="top">
 
     <h1>sukumo vat monitor</h1>
-    <p>a fermenting indigo vat at bioclub tokyo, instrumented with a raspberry pi. an experiment in multispecies attention: temperature, surface activity, ph, orp, dissolved oxygen, all logged continuously.</p>
+    <p>a fermenting indigo vat at bioclub tokyo, instrumented with a raspberry pi. an experiment in multispecies attention: temperature, surface activity, ph, orp, dissolved oxygen, all logged continuously. the pi runs offline at the lab and syncs to drive periodically when carried within reach of a network.</p>
 
     <!-- ============================================================ -->
     <!-- DASHBOARD                                                     -->
     <!-- ============================================================ -->
     <h2 id="dashboard">// dashboard</h2>
-    <p class="muted">live snapshot from the e-ink display, refreshed when the pi has internet. day count begins on vat fill (day 1).</p>
+    <p class="muted">snapshot of the on-site e-ink display, refreshed when the pi syncs to drive. day count begins on vat fill (day 1).</p>
 
     <div class="dashboard-image">
       <!--
@@ -50,19 +48,19 @@
       <h2>// what's being measured</h2>
       <dl>
         <dt>temperature</dt>
-        <dd>vat liquid temperature in &deg;C. healthy sukumo sits around 25&ndash;30&deg;C. read continuously from a DS18B20 probe at mid-depth.</dd>
+        <dd>vat liquid temperature in &deg;C. healthy sukumo sits around 25&ndash;30&deg;C (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8342947/" target="_blank">Aino et al., 2018</a>). read continuously from a DS18B20 probe at mid-depth.</dd>
 
         <dt>electrodes (surface / mid / bottom)</dt>
         <dd>voltage from carbon paper strips on the vat wall at three depths. shifts with the vat's chemistry. 4 at surface (N/S/E/W), 2 at mid (N/S), 2 at bottom (N/S). read continuously against a shared reference.</dd>
 
         <dt>pH</dt>
-        <dd>acidity / alkalinity, manual reading. healthy sukumo is strongly alkaline (~10.5&ndash;11).</dd>
+        <dd>acidity / alkalinity, manual reading. fermenting sukumo is strongly alkaline, typically pH 10.3&ndash;11 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8342947/" target="_blank">Aino et al., 2018</a>).</dd>
 
         <dt>ORP (oxidation-reduction potential)</dt>
         <dd>how chemically reducing the vat is, in millivolts. more negative = more reducing. manual reading.</dd>
 
         <dt>DO (dissolved oxygen)</dt>
-        <dd>oxygen dissolved in the liquid, in mg/L. high values work against the dye chemistry. manual reading.</dd>
+        <dd>oxygen dissolved in the liquid, in mg/L. manual reading.</dd>
       </dl>
     </section>
 
@@ -89,28 +87,42 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     </section>
 
     <!-- ============================================================ -->
-    <!-- CONTRIBUTE (links to google form / sheet / drive)             -->
+    <!-- CONTRIBUTE (form / sheet / drive)                             -->
     <!-- ============================================================ -->
     <h2 id="contribute">// contribute</h2>
-    <p>diary entries are submitted via a google form. anyone can submit anonymously. each interaction (manual reading, stir, feed, observation, creative session) gets one entry.</p>
+    <p>each interaction with the vat (manual reading, stir, feed, observation, creative session) gets one diary entry. anyone can submit anonymously.</p>
 
     <div class="grid">
       <div class="card">
-        <h2>submit a diary entry</h2>
-        <p>open the google form on your phone. takes 30 seconds.</p>
-        <p><a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">go to form &rarr;</a></p>
-      </div>
-      <div class="card">
-        <h2>view past entries</h2>
-        <p>responses live in a google sheet, sortable and filterable.</p>
-        <p><a href="https://docs.google.com/spreadsheets/d/1RbDKCh64kaGjnXB8O4llscnZQoxkXkf_e6kJx5h7rmk/edit?usp=sharing" target="_blank">open sheet &rarr;</a></p>
+        <h2>submit an entry</h2>
+        <p>30-second google form. for manual readings, take ph / orp / do from the whitebox first.</p>
+        <p><a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">open form &rarr;</a></p>
       </div>
       <div class="card">
         <h2>upload media</h2>
-        <p>photos, audio, video go in the dated drive folder for the day. paste the link into the form's "media" field.</p>
+        <p>drop photos / audio / video into the incoming folder. an apps script renames them and files them under the day's archive folder.</p>
         <p><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">open drive &rarr;</a></p>
       </div>
+      <div class="card">
+        <h2>browse the archive</h2>
+        <p>diary entries (sheet) plus daily sensor csvs and media (drive), organised by date.</p>
+        <p><a href="https://docs.google.com/spreadsheets/d/1RbDKCh64kaGjnXB8O4llscnZQoxkXkf_e6kJx5h7rmk/edit?usp=sharing" target="_blank">sheet &rarr;</a><br><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">drive &rarr;</a></p>
+      </div>
     </div>
+
+    <h3>taking a manual reading with the whitebox</h3>
+    <ol>
+      <li>make sure the whitebox + arduino mega is plugged into the pi via usb.</li>
+      <li>make sure the ph / orp / do probes are placed in the vat (or in calibration solution).</li>
+      <li>wait 30 seconds for readings to stabilise.</li>
+      <li>read the values from the connected device and type them into the form.</li>
+    </ol>
+
+    <h3>notes</h3>
+    <ul>
+      <li>past entries can't be edited via the form. submit a new entry with corrected values; mention the correction in notes.</li>
+      <li>the dashboard image and the pi's local diary update only when the pi next syncs (it spends most of its time offline at the lab). the sheet itself is always live.</li>
+    </ul>
 
     <!-- ============================================================ -->
     <!-- RECIPE                                                        -->
@@ -192,82 +204,20 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     </section>
 
     <!-- ============================================================ -->
-    <!-- DATA                                                          -->
-    <!-- ============================================================ -->
-    <h2 id="data">// data</h2>
-    <p>raw sensor data backed up daily from the pi to google drive (when network permits). diary entries live in the linked google sheet.</p>
-
-    <div class="grid">
-      <div class="card">
-        <h2>sensor csvs</h2>
-        <p>one daily file per day. timestamp, temperature, 8 electrode voltages, last manual ph/orp/do.</p>
-        <p><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">open drive &rarr;</a></p>
-      </div>
-      <div class="card">
-        <h2>diary log</h2>
-        <p>all submitted entries with timestamps, sortable, filterable.</p>
-        <p><a href="https://docs.google.com/spreadsheets/d/1RbDKCh64kaGjnXB8O4llscnZQoxkXkf_e6kJx5h7rmk/edit?usp=sharing" target="_blank">open sheet &rarr;</a></p>
-      </div>
-      <div class="card">
-        <h2>media folder</h2>
-        <p>photos, audio, video uploaded by caretakers, organised by date.</p>
-        <p><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">open drive &rarr;</a></p>
-      </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- MANUAL                                                        -->
-    <!-- ============================================================ -->
-    <h2 id="manual">// manual</h2>
-
-    <h3>submitting a diary entry</h3>
-    <ol>
-      <li>open the <a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">google form</a> on any device with internet.</li>
-      <li>pick the type of interaction (manual reading, stir, feed, observation, creative session, other).</li>
-      <li>if logging a manual reading, take ph/orp/do values from the whitebox and type them in.</li>
-      <li>add notes about what you observed or did.</li>
-      <li>if you have photos / audio / video: upload to the day's drive folder, copy the link, paste into the form.</li>
-      <li>submit. the pi pulls new entries on its next sync.</li>
-    </ol>
-
-    <h3>taking a manual reading with the whitebox</h3>
-    <ol>
-      <li>make sure the whitebox + arduino mega is plugged into the pi via usb.</li>
-      <li>make sure the ph/orp/do probes are placed in the vat (or in calibration solution).</li>
-      <li>wait 30 seconds for readings to stabilize.</li>
-      <li>read the values from the whitebox display or via a connected device.</li>
-      <li>type them into the diary form.</li>
-    </ol>
-
-    <h3>editing or correcting a past entry</h3>
-    <p>past entries can't be edited via the form. submit a new entry with corrected values; mention the correction in notes. all submissions are kept for the historical record.</p>
-
-    <h3>troubleshooting</h3>
-    <ul>
-      <li><strong>dashboard image is stale or missing:</strong> the pi hasn't synced recently. dashboard updates only when the pi has internet.</li>
-      <li><strong>diary entries don't appear on the dashboard immediately:</strong> entries flow form &rarr; sheet &rarr; pi (on next sync) &rarr; dashboard. allow up to a few hours.</li>
-      <li><strong>"read from whitebox" not working on-site:</strong> mega not plugged in via usb, or ezo circuits in the wrong mode. check cables and the tentacle setup.</li>
-    </ul>
-
-    <!-- ============================================================ -->
     <!-- BUILD / SONIFICATION                                          -->
     <!-- ============================================================ -->
     <h2 id="build">// build</h2>
-    <p>using the live vat data in your own work: sound, visuals, anything. note that osc / json access is local-network-only at bioclub; the public site below is for documentation.</p>
+    <p>working with the data in your own pieces (sound, visuals, anything).</p>
 
-    <h3>three ways to get the data</h3>
     <dl class="protocol">
-      <dt>OSC broadcast</dt>
-      <dd>UDP, port 9000, on the bioclub local network when the pi is online. one message per sensor per cycle. for live performance and creative coding.</dd>
+      <dt>archive (public)</dt>
+      <dd>daily csvs in the drive folder above &mdash; one file per day, with timestamp, temperature, 8 electrode voltages, and last manual ph / orp / do. full historical record, for analysis or rendering past data.</dd>
 
-      <dt>JSON snapshot</dt>
-      <dd>http://&lt;pi-ip&gt;:8080/api/latest on the local network. current readings as JSON. for web pages, scripts, dashboards.</dd>
-
-      <dt>CSV logs</dt>
-      <dd>drive folder above. full historical record. for analysis or rendering past data.</dd>
+      <dt>live, on-site only</dt>
+      <dd>when the pi is powered up at the lab it broadcasts OSC over UDP and serves a JSON snapshot on the local network. neither is reachable from outside the lab. for live performance / creative coding sessions in the room.</dd>
     </dl>
 
-    <h3>OSC address scheme</h3>
+    <h3>OSC address scheme (local network)</h3>
     <pre>/sukumo/temperature        &lt;float &deg;C&gt;
 /sukumo/electrode/sfc_n    &lt;float V&gt;
 /sukumo/electrode/sfc_s    &lt;float V&gt;
@@ -280,10 +230,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
 /sukumo/ph                 &lt;float&gt;
 /sukumo/orp                &lt;float mV&gt;
 /sukumo/do                 &lt;float mg/L&gt;</pre>
-    <p>missing values send <code>/sukumo/&lt;key&gt;/missing 1</code> instead of a number.</p>
-
-    <h3>example receivers</h3>
-    <p>see the project's <a href="https://github.com/sukumo-net/sukumo/tree/main/examples" target="_blank">examples folder</a> for receivers in supercollider, pure data, and python.</p>
+    <p>port and JSON endpoint are configurable; ask in the lab. missing values send <code>/sukumo/&lt;key&gt;/missing 1</code> instead of a number.</p>
 
   </main>
 
