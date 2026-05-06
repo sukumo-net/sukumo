@@ -30,11 +30,12 @@
 
 // The folder caretakers upload INTO (shared "anyone with link can edit").
 // Find the ID in the URL: https://drive.google.com/drive/folders/<THIS-PART>
-const INCOMING_FOLDER_ID = 'PUT_INCOMING_FOLDER_ID_HERE';
+const INCOMING_FOLDER_ID = '1rVcjffMahZgunWBBHu5vXFo3gJUlTd_s';
 
 // The folder where dated subfolders are created (organised, owner-only or
-// "anyone with link can view"). Typically the project's "media" folder.
-const ARCHIVE_PARENT_ID = 'PUT_ARCHIVE_PARENT_ID_HERE';
+// "anyone with link can view"). Typically the project's main folder where
+// dated daily subfolders already exist (pre-populated by the Pi setup).
+const ARCHIVE_PARENT_ID = '1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D';
 
 // === SCRIPT ============================================================
 

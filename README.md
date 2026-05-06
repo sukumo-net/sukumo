@@ -85,16 +85,18 @@ Files dropped into the public "incoming" Drive folder are auto-renamed and moved
 
 ### Setup (one-time)
 
-1. **Create the folders in Drive**:
-   - `media/` (the archive parent — owner-only or "anyone with link → viewer")
-   - `media/incoming/` (the upload drop — share as "anyone with link → editor")
-2. Note both folder IDs from their Drive URLs (the long string after `/folders/`).
-3. Open https://script.google.com → **New project**.
-4. Replace the default code with the contents of `incoming-rename.gs`.
-5. Set `INCOMING_FOLDER_ID` and `ARCHIVE_PARENT_ID` at the top of the script.
-6. **Save** (Cmd-S; name the project "sukumo media organiser").
-7. Click **Run** → function `renameNewUploads`. First run prompts for Drive permissions; approve.
-8. **Triggers** (clock icon in left sidebar) → **Add Trigger**:
+The folder IDs are already baked into `incoming-rename.gs`:
+
+- `INCOMING_FOLDER_ID` = `1rVcjffMahZgunWBBHu5vXFo3gJUlTd_s` (the `incoming` folder, shared as "anyone with link → editor")
+- `ARCHIVE_PARENT_ID` = `1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D` (the project folder root, where dated daily subfolders live)
+
+To install the script in Apps Script:
+
+1. Open https://script.google.com → **New project**.
+2. Replace the default code with the contents of `incoming-rename.gs`.
+3. **Save** (Cmd-S; name the project "sukumo media organiser").
+4. Click **Run** → function `renameNewUploads`. First run prompts for Drive permissions; approve.
+5. **Triggers** (clock icon in left sidebar) → **Add Trigger**:
    - Function: `renameNewUploads`
    - Event source: Time-driven
    - Type: Minutes timer
@@ -108,13 +110,15 @@ Every 5 minutes the script:
 1. Lists files in `incoming/`.
 2. For each file not already prefixed with `YYYY-MM-DD_`:
    - Renames `IMG_2034.jpg` to `2026-05-06_14-30_IMG_2034.jpg` (using the upload time).
-   - Finds or creates a subfolder under `media/` named after the date (e.g. `2026-05-06`).
+   - Finds or creates a subfolder under the project folder root named after the date (e.g. `2026-05-06`). The Pi pre-created 547 dated subfolders for the project's 1.5-year lifespan, so most days the script just picks an existing folder.
    - Moves the file into that subfolder.
 3. Files already prefixed are left alone (idempotent, safe to re-run).
 
+The Pi-side `drive_backup.py` uploads CSVs into the same dated subfolders, so each day's folder ends up holding everything for that date: sensor CSVs, diary CSVs, and the day's media uploads.
+
 ### Verifying
 
-Drop a test file into `incoming/`. Within 5 minutes:
+Drop a test file into the `incoming/` folder. Within 5 minutes:
 - The file should disappear from `incoming/`.
-- A new dated folder under `media/` should contain the renamed file.
+- The dated folder for today (e.g. `2026-05-06`) under the project folder should contain the renamed file.
 - The Apps Script execution log (View → Logs) shows what was processed.
