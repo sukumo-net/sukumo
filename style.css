@@ -1,0 +1,627 @@
+/* Sukumo monitor UI - minimalist web art / typewriter aesthetic.
+ *
+ * Design notes:
+ *   - Monospace everything. Reads like a printout.
+ *   - Off-white paper background (#f4f1ea), near-black ink (#111).
+ *   - Single accent color (indigo, of course) used very sparingly.
+ *   - Borders are thin lines, no shadows, no rounded corners.
+ *   - ASCII-style dividers and prefixes (// section, > prompt).
+ */
+
+:root {
+  --paper: #eef1f4;
+  --paper-tint: #e2e7ec;
+  --ink: #111111;
+  --ink-soft: #4d5560;
+  --ink-faint: #8c95a0;
+  --rule: #1c1c1c;
+  --indigo: #1c2638;
+  --mono: "Inconsolata", "Courier New", "Courier", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 4rem; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ----- header / nav ----- */
+
+header {
+  background: var(--paper);
+  border-bottom: 1px solid var(--rule);
+  padding: 0.6rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header-inner {
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+}
+
+.brand::before { content: "▮ "; color: var(--indigo); }
+
+nav a {
+  color: var(--ink);
+  text-decoration: none;
+  margin-left: 1.2rem;
+  font-size: 0.85rem;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 1px;
+}
+
+nav a:hover { border-bottom-color: var(--ink); }
+
+/* ----- main ----- */
+
+main {
+  max-width: 820px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+h1 {
+  margin: 0.5rem 0 1.2rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.5rem;
+}
+
+h1::before { content: "// "; color: var(--ink-faint); }
+
+h2 {
+  margin: 1.2rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+p { margin: 0.4rem 0; }
+
+a { color: var(--indigo); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { color: var(--ink); }
+
+.muted { color: var(--ink-soft); }
+
+strong { font-weight: 700; }
+
+/* ----- big number (temperature) ----- */
+
+.big-number {
+  font-size: 2.2rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin: 0.3rem 0;
+}
+
+/* ----- dashboard image ----- */
+
+.dashboard-image {
+  margin: 1rem 0;
+  text-align: center;
+  border: 1px solid var(--rule);
+  background: white;
+  padding: 0.6rem;
+}
+
+.dashboard-image img {
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+}
+
+/* ----- readings key (top of home page) ----- */
+
+.readings-key {
+  border: 1px solid var(--rule);
+  padding: 0.8rem 1rem;
+  margin: 1rem 0;
+  background: var(--paper);
+}
+
+.readings-key h2 { margin-top: 0; }
+
+.readings-key dl {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 1rem;
+  row-gap: 0.5rem;
+  /* Match body / explainer text size for consistent readability across pages. */
+  font-size: 1rem;
+}
+
+.readings-key dt {
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.readings-key dt::before { content: "› "; color: var(--ink-faint); }
+
+.readings-key dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+/* Compact variant used on the data page where the key is reference-only.
+ * Slightly tighter, but still uses the body font size for readability.
+ * Preserves the original case of dt labels (T, sN, pH, ORP, DO) so they
+ * match the column headers in the table below exactly. */
+.readings-key.compact { padding: 0.6rem 0.9rem; }
+.readings-key.compact dl { font-size: 0.95rem; row-gap: 0.3rem; }
+.readings-key.compact dt { text-transform: none; letter-spacing: 0; }
+
+@media (max-width: 540px) {
+  .readings-key dl {
+    grid-template-columns: 1fr;
+    row-gap: 0.6rem;
+  }
+  .readings-key dd { padding-left: 0.8rem; }
+}
+
+/* ----- step-by-step tutorial (code page) ----- */
+
+ol.tutorial {
+  padding-left: 1.6rem;
+  margin: 0.6rem 0 1.2rem;
+}
+
+ol.tutorial > li {
+  margin: 0.7rem 0 1.2rem;
+  padding-left: 0.3rem;
+}
+
+ol.tutorial > li > strong {
+  display: inline-block;
+  margin-bottom: 0.2rem;
+}
+
+ol.tutorial p,
+ol.tutorial ul,
+ol.tutorial dl {
+  margin: 0.3rem 0;
+}
+
+ol.tutorial code {
+  white-space: nowrap;
+}
+
+/* ----- generic 2-column dl on the code page ----- */
+
+dl.protocol {
+  margin: 0.5rem 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 1rem;
+  row-gap: 0.4rem;
+}
+
+dl.protocol dt {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+dl.protocol dd { margin: 0; color: var(--ink-soft); }
+
+@media (max-width: 540px) {
+  dl.protocol { grid-template-columns: 1fr; row-gap: 0.5rem; }
+}
+
+/* ----- explainer block ----- */
+
+.explainer {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--indigo);
+  padding: 0.8rem 1rem;
+  margin: 1rem 0;
+  background: var(--paper-tint);
+}
+
+.explainer h2 { margin-top: 0; }
+.explainer ol { padding-left: 1.4rem; margin: 0.4rem 0; }
+.explainer li { margin: 0.3rem 0; }
+
+/* ----- grid of cards ----- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0;
+  margin: 1rem 0;
+  border: 1px solid var(--rule);
+}
+
+.card {
+  padding: 0.8rem 1rem;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.card:last-child { border-right: none; }
+
+.card h2 {
+  margin-top: 0;
+  border-bottom: 1px dashed var(--ink-faint);
+  padding-bottom: 0.3rem;
+}
+
+.card h2::before { content: "> "; color: var(--ink-faint); }
+
+/* ----- tables ----- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem;
+  font-family: var(--mono);
+}
+
+table th, table td {
+  text-align: left;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px dashed var(--ink-faint);
+}
+
+table th {
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  margin: 0.5rem 0;
+}
+
+table.recent {
+  font-size: 0.9rem;
+  border-collapse: collapse;
+  white-space: nowrap;
+  min-width: 100%;
+}
+
+table.recent th,
+table.recent td {
+  padding: 0.18rem 0.45rem;
+  border-bottom: 1px dashed var(--ink-faint);
+  text-align: right;
+  /* Preserve the case of column labels (T, sN, ORP, etc.).
+   * !important defeats the global `table th { text-transform: lowercase }` rule
+   * regardless of cascade ordering or browser cache quirks. */
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+table.recent th:first-child,
+table.recent td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+}
+
+table.recent th {
+  background: var(--paper-tint);
+  border-bottom: 1px solid var(--rule);
+}
+
+table.recent th:first-child { background: var(--paper-tint); }
+
+.column-key {
+  font-size: 0.72rem;
+  margin: 0.3rem 0 0.6rem;
+  line-height: 1.4;
+}
+
+.column-key span { white-space: nowrap; }
+
+/* ----- forms ----- */
+
+form label {
+  display: block;
+  margin: 0.7rem 0;
+  font-size: 1rem;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+
+form label::before { content: "> "; color: var(--ink-faint); }
+
+form input,
+form textarea,
+form select {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  margin-top: 0.2rem;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  font-family: var(--mono);
+  font-size: 1rem;
+  background: white;
+  color: var(--ink);
+}
+
+form input:focus,
+form textarea:focus,
+form select:focus {
+  outline: 2px solid var(--indigo);
+  outline-offset: -2px;
+}
+
+fieldset {
+  border: 1px solid var(--rule);
+  padding: 0.7rem 1rem;
+  margin: 0.8rem 0;
+  border-radius: 0;
+}
+
+fieldset legend {
+  padding: 0 0.4rem;
+  font-size: 0.95rem;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+
+button {
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 1rem;
+  text-transform: lowercase;
+  letter-spacing: 0.08em;
+}
+
+button:hover { background: var(--indigo); border-color: var(--indigo); }
+button:disabled { opacity: 0.5; cursor: wait; }
+
+button.secondary {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+button.secondary:hover { background: var(--ink); color: var(--paper); }
+
+/* ----- diary entries ----- */
+
+ul.entries {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+.entry {
+  border: 1px solid var(--rule);
+  padding: 0.6rem 0.9rem;
+  margin: 0.5rem 0;
+  background: var(--paper);
+}
+
+.entry-header {
+  display: flex;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tag {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.05rem 0.5rem;
+  border-radius: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+}
+
+.readings {
+  font-family: var(--mono);
+  color: var(--ink-soft);
+  font-size: 1rem;
+  margin: 0.2rem 0;
+}
+
+.entry p { margin: 0.3rem 0; font-size: 1rem; }
+.media { font-size: 0.85rem; padding-left: 1.2rem; }
+
+/* ----- QR code ----- */
+
+.qr {
+  width: 160px;
+  height: 160px;
+  border: 1px solid var(--rule);
+  background: white;
+  padding: 4px;
+  image-rendering: pixelated;
+}
+
+/* ----- code listing ----- */
+
+ul.files {
+  list-style: none;
+  padding: 0;
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+
+ul.files li::before { content: "  · "; color: var(--ink-faint); }
+ul.files li { padding: 0.1rem 0; }
+
+/* ----- date-grouped downloads (data page) ----- */
+
+.downloads-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.date-jump {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.date-jump label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.95rem;
+}
+
+.date-jump label::before { content: none; }
+
+.date-jump input[type="date"] {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--rule);
+  background: white;
+  width: auto;
+}
+
+.bulk-link {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.3rem 0.7rem;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+
+.bulk-link:hover { background: var(--indigo); color: var(--paper); }
+
+ul.day-groups { list-style: none; padding: 0; margin: 0; }
+ul.day-groups > li {
+  margin: 0.6rem 0;
+  border-top: 1px dashed var(--ink-faint);
+  padding-top: 0.4rem;
+}
+ul.day-groups > li:first-child { border-top: none; padding-top: 0; }
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+.day-date::before { content: "› "; color: var(--ink-faint); font-weight: 400; }
+
+pre.code {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 0.95rem;
+  font-family: var(--mono);
+  line-height: 1.5;
+  border: 1px solid var(--rule);
+  white-space: pre;
+}
+
+pre {
+  background: var(--paper-tint);
+  padding: 0.6rem 0.8rem;
+  border-left: 2px solid var(--indigo);
+  font-size: 0.95rem;
+  overflow-x: auto;
+}
+
+code {
+  background: var(--paper-tint);
+  padding: 0.05rem 0.3rem;
+  font-family: var(--mono);
+  font-size: 1rem;
+}
+
+/* ----- details / disclosure ----- */
+
+details {
+  border: 1px dashed var(--ink-faint);
+  padding: 0.5rem 0.8rem;
+  margin: 0.6rem 0;
+}
+
+details summary {
+  cursor: pointer;
+  font-size: 1rem;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+}
+
+/* ----- footer ----- */
+
+footer {
+  max-width: 820px;
+  margin: 3rem auto 1rem;
+  padding: 0.8rem 1rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+footer p::before { content: "// "; }
+footer p::after { content: " //"; }
+
+/* ----- mobile tweaks ----- */
+
+@media (max-width: 540px) {
+  body { font-size: 13px; }
+  .header-inner { gap: 0.3rem; }
+  nav a { margin-left: 0.7rem; }
+  .grid { grid-template-columns: 1fr; }
+  .card { border-right: none; }
+}

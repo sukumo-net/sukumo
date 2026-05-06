@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sukumo Vat Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="#top" class="brand">SUKUMO</a>
+      <nav>
+        <a href="#dashboard">dashboard</a>
+        <a href="#contribute">contribute</a>
+        <a href="#recipe">recipe</a>
+        <a href="#data">data</a>
+        <a href="#manual">manual</a>
+        <a href="#build">build</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <h1>sukumo vat monitor</h1>
+    <p>a fermenting indigo vat at bioclub tokyo, instrumented with a raspberry pi. an experiment in multispecies attention: temperature, surface activity, ph, orp, dissolved oxygen, all logged continuously.</p>
+
+    <!-- ============================================================ -->
+    <!-- DASHBOARD                                                     -->
+    <!-- ============================================================ -->
+    <h2 id="dashboard">// dashboard</h2>
+    <p class="muted">live snapshot from the e-ink display, refreshed when the pi has internet. day count begins on vat fill (day 1).</p>
+
+    <div class="dashboard-image">
+      <!--
+        REPLACE the src below with a public Drive image URL once the Pi
+        starts uploading dashboard.png. Format:
+          https://drive.google.com/uc?export=view&id=YOUR_FILE_ID
+      -->
+      <img src="dashboard-placeholder.png" alt="Live sukumo dashboard"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <p class="muted" style="display:none">dashboard image not yet available. check back when the pi has run a sync cycle.</p>
+    </div>
+
+    <section class="readings-key">
+      <h2>// what's being measured</h2>
+      <dl>
+        <dt>temperature</dt>
+        <dd>vat liquid temperature in &deg;C. healthy sukumo sits around 25&ndash;30&deg;C. read continuously from a DS18B20 probe at mid-depth.</dd>
+
+        <dt>electrodes (surface / mid / bottom)</dt>
+        <dd>voltage from carbon paper strips on the vat wall at three depths. shifts with the vat's chemistry. 4 at surface (N/S/E/W), 2 at mid (N/S), 2 at bottom (N/S). read continuously against a shared reference.</dd>
+
+        <dt>pH</dt>
+        <dd>acidity / alkalinity, manual reading. healthy sukumo is strongly alkaline (~10.5&ndash;11).</dd>
+
+        <dt>ORP (oxidation-reduction potential)</dt>
+        <dd>how chemically reducing the vat is, in millivolts. more negative = more reducing. manual reading.</dd>
+
+        <dt>DO (dissolved oxygen)</dt>
+        <dd>oxygen dissolved in the liquid, in mg/L. high values work against the dye chemistry. manual reading.</dd>
+      </dl>
+    </section>
+
+    <section class="explainer">
+      <h2>// surface activity</h2>
+      <p>top-down view of the vat surface. the four markers are the surface electrodes (N, S, E, W). the speckled cloud summarises how the four readings differ from each other and from an hour ago. a calm vat reads as an empty circle; a wall reading differently appears as a denser cluster near that wall.</p>
+      <p>two signals drive the cloud:</p>
+      <ol>
+        <li>
+          <strong>per-electrode deviation.</strong> each electrode contributes a Gaussian kernel at its own position. the bigger its gap from the average of the four, the denser the kernel. opposite walls both deviating produce two distinct kernels.
+          <pre>density(p) +=  4.5 &middot; |v_k &minus; mean(v)| &middot; exp(&minus; |p &minus; pos_k|&sup2; / 2&sigma;&sub1;&sup2;)
+where &sigma;&sub1; &asymp; 0.45 &middot; r_inner</pre>
+        </li>
+        <li>
+          <strong>common-mode drift.</strong> when all four shift together, the average moves from its hour-ago value. that change adds a broad kernel at the center, for activity spread across the whole vat rather than at one wall.
+          <pre>density(p) +=  3.5 &middot; |mean(v) &minus; mean_baseline| &middot; exp(&minus; |p &minus; center|&sup2; / 2&sigma;&sub2;&sup2;)
+where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
+        </li>
+      </ol>
+      <p>at each pixel the two are summed and used as the probability of placing a dot, capped at 55%. seeded from the current readings.</p>
+
+      <h2>// orp target</h2>
+      <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. the tick marks &minus;600 mV, cited as the industrial threshold for indigo reduction (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9430710/" target="_blank">Li et al., 2022</a>). the pointer turns red above &minus;550 mV.</p>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- CONTRIBUTE (links to google form / sheet / drive)             -->
+    <!-- ============================================================ -->
+    <h2 id="contribute">// contribute</h2>
+    <p>diary entries are submitted via a google form. anyone can submit anonymously. each interaction (manual reading, stir, feed, observation, creative session) gets one entry.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>submit a diary entry</h2>
+        <p>open the google form on your phone. takes 30 seconds.</p>
+        <p><a href="REPLACE_WITH_FORM_URL" target="_blank">go to form &rarr;</a></p>
+      </div>
+      <div class="card">
+        <h2>view past entries</h2>
+        <p>responses live in a google sheet, sortable and filterable.</p>
+        <p><a href="REPLACE_WITH_SHEET_URL" target="_blank">open sheet &rarr;</a></p>
+      </div>
+      <div class="card">
+        <h2>upload media</h2>
+        <p>photos, audio, video go in the dated drive folder for the day. paste the link into the form's "media" field.</p>
+        <p><a href="REPLACE_WITH_DRIVE_FOLDER_URL" target="_blank">open drive &rarr;</a></p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- RECIPE                                                        -->
+    <!-- ============================================================ -->
+    <h2 id="recipe">// recipe</h2>
+    <p class="muted">from 藍建講習会テキスト (足利の藍染 藍絽座, Kazama Yukizō, Ashikaga, Tochigi)</p>
+
+    <section class="explainer">
+      <h2>// 30L vat</h2>
+
+      <h3>ingredients</h3>
+      <ul>
+        <li>3 kg fermented indigo leaves (sukumo)</li>
+        <li>3 kg wood ash &mdash; burn the wood, then leave the ash to sit with water for 1 day (prepare the day before)</li>
+        <li>1 kg shell ash (same amount as wood ash)</li>
+        <li>100 g wheat bran</li>
+        <li>lye made from wood ash, up to 5L (about 500g ash)</li>
+      </ul>
+
+      <h3>day 1 &mdash; up to 5L</h3>
+      <ol>
+        <li>place 3 kg sukumo into the 30L jar.</li>
+        <li>heat 5 L of lye (made from wood ash) to 80&deg;C.</li>
+        <li>pour the warm lye into the jar and stir vigorously with a wooden stick for 5 minutes.</li>
+        <li>stir again in the evening. keep the mixture warm &mdash; temperature must stay above 30&deg;C. if cold, use an electric blanket.</li>
+      </ol>
+      <p class="muted">temperature control is critical at this stage.</p>
+
+      <h3>day 2 &mdash; up to 14L</h3>
+      <ol>
+        <li>repeat the day 1 process in the morning.</li>
+        <li>carefully add more ash, making sure no air gets into the liquid.</li>
+        <li>stir again in the evening.</li>
+      </ol>
+
+      <h3>day 3 &mdash; add 3L (total ~14L)</h3>
+      <ol>
+        <li>heat 4 L of lye to about 35&deg;C.</li>
+        <li>carefully add the warmed lye to the jar.</li>
+        <li>stir morning and evening, avoiding introducing air.</li>
+      </ol>
+
+      <h3>day 4</h3>
+      <ol>
+        <li>stir morning and evening.</li>
+        <li>check for flower (bloom). if visible, proceed to day 5.</li>
+      </ol>
+
+      <h3>day 5 &mdash; add remaining lye (total ~18L, then to ~28L)</h3>
+      <ol>
+        <li>repeat the day 3 process.</li>
+        <li>a rainbow-coloured film should appear on the surface. if not, stir again.</li>
+      </ol>
+
+      <h3>day 6 &mdash; up to 22L</h3>
+      <ol>
+        <li>repeat the day 3 process.</li>
+        <li>the rainbow-coloured film should still appear on the surface. if not visible, stir again.</li>
+      </ol>
+
+      <h3>day 7</h3>
+      <ol>
+        <li>if the rainbow-coloured film is visible, add 100 g of bran and more ash to the pot.</li>
+        <li>add enough ash to slightly cover the bran and cook over medium heat for about 30 minutes, stirring often to prevent burning.</li>
+        <li>once the mixture cools to about 40&deg;C, carefully add it to the indigo liquid, avoiding air.</li>
+        <li>to adjust the pH to 11, gradually add more shell ash while stirring.</li>
+      </ol>
+
+      <h3>day 8</h3>
+      <p>the indigo solution is now ready for use.</p>
+
+      <h2>// care</h2>
+      <ul>
+        <li>during dyeing, avoid letting too much air enter the solution &mdash; this weakens the microorganisms and prevents the dye from developing its colour.</li>
+        <li>regularly check the pH. if too low, adjust by adding more shell ash.</li>
+        <li>if colour still doesn't develop after adjusting pH: heat 500&ndash;1000 ml of lye and maltose in a saucepan until dissolved. allow to cool to ~40&deg;C, then add to the indigo solution and stir.</li>
+        <li>remove the bloom by hand before dyeing.</li>
+      </ul>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- DATA                                                          -->
+    <!-- ============================================================ -->
+    <h2 id="data">// data</h2>
+    <p>raw sensor data backed up daily from the pi to google drive (when network permits). diary entries live in the linked google sheet.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>sensor csvs</h2>
+        <p>one daily file per day. timestamp, temperature, 8 electrode voltages, last manual ph/orp/do.</p>
+        <p><a href="REPLACE_WITH_DRIVE_FOLDER_URL" target="_blank">open drive &rarr;</a></p>
+      </div>
+      <div class="card">
+        <h2>diary log</h2>
+        <p>all submitted entries with timestamps, sortable, filterable.</p>
+        <p><a href="REPLACE_WITH_SHEET_URL" target="_blank">open sheet &rarr;</a></p>
+      </div>
+      <div class="card">
+        <h2>media folder</h2>
+        <p>photos, audio, video uploaded by caretakers, organised by date.</p>
+        <p><a href="REPLACE_WITH_DRIVE_FOLDER_URL" target="_blank">open drive &rarr;</a></p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MANUAL                                                        -->
+    <!-- ============================================================ -->
+    <h2 id="manual">// manual</h2>
+
+    <h3>submitting a diary entry</h3>
+    <ol>
+      <li>open the <a href="REPLACE_WITH_FORM_URL" target="_blank">google form</a> on any device with internet.</li>
+      <li>pick the type of interaction (manual reading, stir, feed, observation, creative session, other).</li>
+      <li>if logging a manual reading, take ph/orp/do values from the whitebox and type them in.</li>
+      <li>add notes about what you observed or did.</li>
+      <li>if you have photos / audio / video: upload to the day's drive folder, copy the link, paste into the form.</li>
+      <li>submit. the pi pulls new entries on its next sync.</li>
+    </ol>
+
+    <h3>taking a manual reading with the whitebox</h3>
+    <ol>
+      <li>make sure the whitebox + arduino mega is plugged into the pi via usb.</li>
+      <li>make sure the ph/orp/do probes are placed in the vat (or in calibration solution).</li>
+      <li>wait 30 seconds for readings to stabilize.</li>
+      <li>read the values from the whitebox display or via a connected device.</li>
+      <li>type them into the diary form.</li>
+    </ol>
+
+    <h3>editing or correcting a past entry</h3>
+    <p>past entries can't be edited via the form. submit a new entry with corrected values; mention the correction in notes. all submissions are kept for the historical record.</p>
+
+    <h3>troubleshooting</h3>
+    <ul>
+      <li><strong>dashboard image is stale or missing:</strong> the pi hasn't synced recently. dashboard updates only when the pi has internet.</li>
+      <li><strong>diary entries don't appear on the dashboard immediately:</strong> entries flow form &rarr; sheet &rarr; pi (on next sync) &rarr; dashboard. allow up to a few hours.</li>
+      <li><strong>"read from whitebox" not working on-site:</strong> mega not plugged in via usb, or ezo circuits in the wrong mode. check cables and the tentacle setup.</li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <!-- BUILD / SONIFICATION                                          -->
+    <!-- ============================================================ -->
+    <h2 id="build">// build</h2>
+    <p>using the live vat data in your own work: sound, visuals, anything. note that osc / json access is local-network-only at bioclub; the public site below is for documentation.</p>
+
+    <h3>three ways to get the data</h3>
+    <dl class="protocol">
+      <dt>OSC broadcast</dt>
+      <dd>UDP, port 9000, on the bioclub local network when the pi is online. one message per sensor per cycle. for live performance and creative coding.</dd>
+
+      <dt>JSON snapshot</dt>
+      <dd>http://&lt;pi-ip&gt;:8080/api/latest on the local network. current readings as JSON. for web pages, scripts, dashboards.</dd>
+
+      <dt>CSV logs</dt>
+      <dd>drive folder above. full historical record. for analysis or rendering past data.</dd>
+    </dl>
+
+    <h3>OSC address scheme</h3>
+    <pre>/sukumo/temperature        &lt;float &deg;C&gt;
+/sukumo/electrode/sfc_n    &lt;float V&gt;
+/sukumo/electrode/sfc_s    &lt;float V&gt;
+/sukumo/electrode/sfc_e    &lt;float V&gt;
+/sukumo/electrode/sfc_w    &lt;float V&gt;
+/sukumo/electrode/mid_n    &lt;float V&gt;
+/sukumo/electrode/mid_s    &lt;float V&gt;
+/sukumo/electrode/btm_n    &lt;float V&gt;
+/sukumo/electrode/btm_s    &lt;float V&gt;
+/sukumo/ph                 &lt;float&gt;
+/sukumo/orp                &lt;float mV&gt;
+/sukumo/do                 &lt;float mg/L&gt;</pre>
+    <p>missing values send <code>/sukumo/&lt;key&gt;/missing 1</code> instead of a number.</p>
+
+    <h3>example receivers</h3>
+    <p>see the project's <a href="https://github.com/sukumo-net/sukumo/tree/main/examples" target="_blank">examples folder</a> for receivers in supercollider, pure data, and python.</p>
+
+  </main>
+
+  <footer>
+    <p>sukumo vat monitor &middot; bioclub tokyo</p>
+  </footer>
+</body>
+</html>
