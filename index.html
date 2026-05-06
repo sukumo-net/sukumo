@@ -207,17 +207,87 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     <!-- BUILD / SONIFICATION                                          -->
     <!-- ============================================================ -->
     <h2 id="build">// build</h2>
-    <p>working with the data in your own pieces (sound, visuals, anything).</p>
+    <p>using the vat data in your own work: sound, visuals, anything. two paths &mdash; the public archive (csv, anywhere, any time) and the live OSC stream (lab-only, while the pi is powered up).</p>
 
-    <dl class="protocol">
-      <dt>archive (public)</dt>
-      <dd>daily csvs in the drive folder above &mdash; one file per day, with timestamp, temperature, 8 electrode voltages, and last manual ph / orp / do. full historical record, for analysis or rendering past data.</dd>
+    <h3>working from the archive</h3>
+    <p>for analysis, rendering past sessions, or making pieces from previous days.</p>
+    <ol class="tutorial">
+      <li>
+        <strong>open the drive folder.</strong>
+        <p>each day has a subfolder with the day's csv plus any uploaded media. one row per minute; columns are timestamp, temperature, 8 electrode voltages, and the last manual ph / orp / do.</p>
+        <p><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">open drive &rarr;</a></p>
+      </li>
+      <li>
+        <strong>load the csv.</strong>
+        <p>standard csv, utf-8. python: <code>pandas.read_csv(...)</code>. supercollider / max: any csv reader. the diary sheet (linked in contribute) gives context for what humans were doing alongside the readings.</p>
+      </li>
+      <li>
+        <strong>map values.</strong>
+        <p>rough ranges to start from:</p>
+        <ul>
+          <li>temperature: 22&ndash;32 &deg;C</li>
+          <li>each electrode: 0.0&ndash;0.5 V</li>
+          <li>pH: 9.5&ndash;11.5</li>
+          <li>ORP: &minus;500 to &minus;300 mV</li>
+          <li>DO: 0.0&ndash;2.0 mg/L</li>
+        </ul>
+      </li>
+    </ol>
 
-      <dt>live, on-site only</dt>
-      <dd>when the pi is powered up at the lab it broadcasts OSC over UDP and serves a JSON snapshot on the local network. neither is reachable from outside the lab. for live performance / creative coding sessions in the room.</dd>
-    </dl>
+    <h3>receiving live OSC (in the lab)</h3>
+    <p>only works when the pi is powered up and you are on the same network as it. for live performance and creative coding sessions in the room.</p>
+    <ol class="tutorial">
+      <li>
+        <strong>get on the same network as the pi.</strong>
+        <p>ask in the lab which network the pi is on, and the pi's address (hostname or IP). client isolation must be off &mdash; some networks block peer-to-peer traffic and OSC won't reach you.</p>
+      </li>
+      <li>
+        <strong>verify with the JSON snapshot.</strong>
+        <p>open <code>http://&lt;pi-address&gt;:8080/api/latest</code> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, OSC won't either &mdash; fix the network first.</p>
+      </li>
+      <li>
+        <strong>pick a tool.</strong>
+        <p>OSC (Open Sound Control) is a UDP message format that almost every creative-coding environment can receive. starting points:</p>
+        <dl class="protocol">
+          <dt>pure data</dt>
+          <dd>visual, flow-based. free at <a href="https://puredata.info" target="_blank">puredata.info</a>.</dd>
 
-    <h3>OSC address scheme (local network)</h3>
+          <dt>supercollider</dt>
+          <dd>text-based, powerful for sound. free at <a href="https://supercollider.github.io" target="_blank">supercollider.github.io</a>.</dd>
+
+          <dt>max/msp, touchdesigner</dt>
+          <dd>commercial; both have free tiers. max is similar to pure data; touchdesigner is for visuals.</dd>
+
+          <dt>python</dt>
+          <dd>example script can be dropped into any project. uses <code>python-osc</code>.</dd>
+        </dl>
+      </li>
+      <li>
+        <strong>open the matching example.</strong>
+        <ul>
+          <li>pure data &rarr; <a href="examples/osc_receiver_puredata.pd">osc_receiver_puredata.pd</a></li>
+          <li>supercollider &rarr; <a href="examples/osc_receiver_supercollider.scd">osc_receiver_supercollider.scd</a></li>
+          <li>python &rarr; <a href="examples/osc_receiver_python.py">osc_receiver_python.py</a></li>
+        </ul>
+        <p>each listens on UDP port <code>9000</code>. messages arrive once per cycle (default 60s).</p>
+      </li>
+      <li>
+        <strong>map values.</strong>
+        <p>each example prints incoming values; replace the print with your sound / visual / parameter. ranges as above.</p>
+      </li>
+      <li>
+        <strong>if it isn't working:</strong>
+        <ul>
+          <li>same network as the pi? (step 1)</li>
+          <li>can you load <code>/api/latest</code>? if not, fix the network before debugging OSC.</li>
+          <li>tool listening on UDP port <code>9000</code>?</li>
+          <li>firewall blocking UDP? macOS: System Settings &rarr; Network &rarr; Firewall. Windows: Defender Firewall.</li>
+          <li>some networks have client isolation on &mdash; ask in the lab.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3>OSC address scheme</h3>
     <pre>/sukumo/temperature        &lt;float &deg;C&gt;
 /sukumo/electrode/sfc_n    &lt;float V&gt;
 /sukumo/electrode/sfc_s    &lt;float V&gt;
@@ -230,7 +300,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
 /sukumo/ph                 &lt;float&gt;
 /sukumo/orp                &lt;float mV&gt;
 /sukumo/do                 &lt;float mg/L&gt;</pre>
-    <p>port and JSON endpoint are configurable; ask in the lab. missing values send <code>/sukumo/&lt;key&gt;/missing 1</code> instead of a number.</p>
+    <p>missing values send <code>/sukumo/&lt;key&gt;/missing 1</code> instead of a number.</p>
 
   </main>
 
