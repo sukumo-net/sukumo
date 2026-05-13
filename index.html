@@ -117,12 +117,71 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     </div>
 
     <h3>taking a manual reading with the whitebox</h3>
-    <ol>
-      <li>make sure the whitebox + arduino mega is plugged into the pi via usb.</li>
-      <li>make sure the ph / orp / do probes are placed in the vat (or in calibration solution).</li>
-      <li>wait 30 seconds for readings to stabilise.</li>
-      <li>read the values from the connected device and type them into the form.</li>
+    <p class="muted">the whitebox (arduino + atlas scientific circuits) reads ph, orp, and do. it lives in the lab, plugged into the pi via usb. you talk to it from your own laptop or phone over the lab network.</p>
+
+    <ol class="tutorial">
+      <li>
+        <strong>connect to the lab wifi.</strong>
+        <p>on your laptop or phone, open the wifi settings and join the lab's local network. ask in the lab for the name and password if you don't already know them. if a captive portal page pops up, accept it.</p>
+      </li>
+
+      <li>
+        <strong>open a terminal on your computer.</strong>
+        <ul>
+          <li><strong>macOS:</strong> open Spotlight (cmd+space), type <code>terminal</code>, hit enter.</li>
+          <li><strong>windows:</strong> start menu → search <code>powershell</code> → open Windows PowerShell.</li>
+          <li><strong>linux:</strong> ctrl+alt+t.</li>
+        </ul>
+        <p>you'll see a blinking cursor on a line. you can paste commands here (cmd+v on mac, ctrl+shift+v on windows / linux) and press enter to run them.</p>
+      </li>
+
+      <li>
+        <strong>check you can reach the pi.</strong>
+        <p>paste this and press enter:</p>
+        <pre>curl -s http://sukumo.local:8080/api/latest</pre>
+        <p>if you see json with temperature and electrode values, you're connected. if it hangs or says "could not resolve host", your laptop isn't on the same network as the pi — go back to step 1.</p>
+      </li>
+
+      <li>
+        <strong>place the probes in the vat.</strong>
+        <p>rinse each probe with distilled water (this clears any storage solution), then submerge all three. the probes need a minute or two to equilibrate before the readings settle.</p>
+      </li>
+
+      <li>
+        <strong>take the reading.</strong>
+        <p>this command waits 60 seconds (so the probes have time to settle), then reads ph, orp, and do:</p>
+        <pre>echo "waiting 60 seconds..."; sleep 60; curl -s http://sukumo.local:8080/api/whitebox/read | python3 -m json.tool</pre>
+        <p>after the wait, you'll see something like:</p>
+        <pre>{
+    "do_mg_l": 1.19,
+    "orp_mv": -601.0,
+    "ph": 9.52
+}</pre>
+        <p>those three numbers go in the diary form.</p>
+      </li>
+
+      <li>
+        <strong>submit a diary entry with the values.</strong>
+        <p>open the <a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">diary form</a> → pick "manual reading" (or describe what you did, e.g. "manual reading + stir") → fill in ph / orp / do with the values from step 5 → add a note describing what you observed about the vat → submit.</p>
+      </li>
+
+      <li>
+        <strong>rinse and re-store the probes.</strong>
+        <p>rinse each probe with distilled water and place back into its storage bottle:</p>
+        <ul>
+          <li><strong>ph probe</strong> — pH storage solution (KCl-based). never let the bulb dry out.</li>
+          <li><strong>orp probe</strong> — same KCl storage solution as pH.</li>
+          <li><strong>do probe</strong> — kept dry, cap loose so air can circulate. do not store wet long-term.</li>
+        </ul>
+      </li>
     </ol>
+
+    <h4>troubleshooting</h4>
+    <ul>
+      <li><strong>curl returns "could not resolve host" or hangs:</strong> you're not on the same network as the pi, or the pi is offline. check wifi.</li>
+      <li><strong>one or more values come back as null:</strong> that probe isn't responding. check the connection between probe and ezo circuit on the whitebox shield.</li>
+      <li><strong>values look obviously wrong</strong> (pH near 7 in vat, orp positive, do above 5 mg/L): probe may need calibration. ask in the lab.</li>
+    </ul>
 
     <h3>notes</h3>
     <ul>
