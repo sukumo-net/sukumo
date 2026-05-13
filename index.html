@@ -34,10 +34,19 @@
     <p class="muted">snapshot of the on-site e-ink display, refreshed when the pi syncs to drive. day count begins on vat fill (day 1).</p>
 
     <div class="dashboard-image">
-      <img src="https://lh3.googleusercontent.com/d/1QDxVUK7KxUpJXeWliJ8_wnElZSEiSVxk=w1000" alt="Live sukumo dashboard"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-      <p class="muted" style="display:none">dashboard image not yet available. check back when the pi has run a sync cycle.</p>
+      <img id="dashboard-img" alt="Live sukumo dashboard"
+           onerror="this.style.display='none';document.getElementById('dashboard-fallback').style.display='block'">
+      <p id="dashboard-fallback" class="muted" style="display:none">dashboard image not yet available. check back when the pi has run a sync cycle.</p>
     </div>
+    <script>
+      // Cache-buster: appends a fresh timestamp so the browser fetches the
+      // current Drive image on each page load, bypassing its local cache.
+      // (Google's CDN sets long Cache-Control on these URLs.)
+      (function () {
+        var img = document.getElementById('dashboard-img');
+        img.src = 'https://lh3.googleusercontent.com/d/1QDxVUK7KxUpJXeWliJ8_wnElZSEiSVxk=w1000?t=' + Date.now();
+      })();
+    </script>
 
     <section class="readings-key">
       <h2>// what's being measured</h2>
