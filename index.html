@@ -31,7 +31,6 @@
     <!-- DASHBOARD                                                     -->
     <!-- ============================================================ -->
     <h2 id="dashboard">// dashboard</h2>
-    <p class="muted">snapshot of the on-site e-ink display, refreshed when the pi syncs to drive. day count begins on vat fill (day 1).</p>
 
     <div class="dashboard-image">
       <img id="dashboard-img" alt="Live sukumo dashboard"
@@ -117,70 +116,63 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     </div>
 
     <h3>taking a manual reading with the whitebox</h3>
-    <p class="muted">the whitebox (arduino + atlas scientific circuits) reads ph, orp, and do. it lives in the lab, plugged into the pi via usb. you talk to it from your own laptop or phone over the lab network.</p>
 
     <ol class="tutorial">
       <li>
-        <strong>connect to the lab wifi.</strong>
-        <p>on your laptop or phone, open the wifi settings and join the lab's local network. ask in the lab for the name and password if you don't already know them. if a captive portal page pops up, accept it.</p>
+        <strong>join the <code>sukumo-net</code> wifi.</strong>
+        <p>password is on a label on the router (ask in the lab if unsure).</p>
       </li>
 
       <li>
-        <strong>open a terminal on your computer.</strong>
+        <strong>open a terminal.</strong>
         <ul>
-          <li><strong>macOS:</strong> open Spotlight (cmd+space), type <code>terminal</code>, hit enter.</li>
-          <li><strong>windows:</strong> start menu → search <code>powershell</code> → open Windows PowerShell.</li>
-          <li><strong>linux:</strong> ctrl+alt+t.</li>
+          <li>macOS: spotlight → <code>terminal</code></li>
+          <li>windows: start → <code>powershell</code></li>
+          <li>linux: ctrl+alt+t</li>
         </ul>
-        <p>you'll see a blinking cursor on a line. you can paste commands here (cmd+v on mac, ctrl+shift+v on windows / linux) and press enter to run them.</p>
       </li>
 
       <li>
-        <strong>check you can reach the pi.</strong>
-        <p>paste this and press enter:</p>
+        <strong>verify you can reach the pi.</strong>
         <pre>curl -s http://sukumo.local:8080/api/latest</pre>
-        <p>if you see json with temperature and electrode values, you're connected. if it hangs or says "could not resolve host", your laptop isn't on the same network as the pi — go back to step 1.</p>
+        <p>json output = you're connected. hang or "could not resolve host" = wrong network.</p>
       </li>
 
       <li>
-        <strong>place the probes in the vat.</strong>
-        <p>rinse each probe with distilled water (this clears any storage solution), then submerge all three. the probes need a minute or two to equilibrate before the readings settle.</p>
+        <strong>place probes in the vat.</strong>
+        <p>rinse each with distilled water first.</p>
       </li>
 
       <li>
-        <strong>take the reading.</strong>
-        <p>this command waits 60 seconds (so the probes have time to settle), then reads ph, orp, and do:</p>
+        <strong>read.</strong>
         <pre>echo "waiting 60 seconds..."; sleep 60; curl -s http://sukumo.local:8080/api/whitebox/read | python3 -m json.tool</pre>
-        <p>after the wait, you'll see something like:</p>
+        <p>returns ph, orp, do after a 60-second settle:</p>
         <pre>{
     "do_mg_l": 1.19,
     "orp_mv": -601.0,
     "ph": 9.52
 }</pre>
-        <p>those three numbers go in the diary form.</p>
       </li>
 
       <li>
-        <strong>submit a diary entry with the values.</strong>
-        <p>open the <a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">diary form</a> → pick "manual reading" (or describe what you did, e.g. "manual reading + stir") → fill in ph / orp / do with the values from step 5 → add a note describing what you observed about the vat → submit.</p>
+        <strong>submit via the <a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">diary form</a>.</strong>
+        <p>pick "manual reading" (or similar) and paste the three values.</p>
       </li>
 
       <li>
         <strong>rinse and re-store the probes.</strong>
-        <p>rinse each probe with distilled water and place back into its storage bottle:</p>
         <ul>
-          <li><strong>ph probe</strong> — pH storage solution (KCl-based). never let the bulb dry out.</li>
-          <li><strong>orp probe</strong> — same KCl storage solution as pH.</li>
-          <li><strong>do probe</strong> — kept dry, cap loose so air can circulate. do not store wet long-term.</li>
+          <li>ph &amp; orp: KCl-based storage solution. never dry out.</li>
+          <li>do: kept dry, cap loose.</li>
         </ul>
       </li>
     </ol>
 
     <h4>troubleshooting</h4>
     <ul>
-      <li><strong>curl returns "could not resolve host" or hangs:</strong> you're not on the same network as the pi, or the pi is offline. check wifi.</li>
-      <li><strong>one or more values come back as null:</strong> that probe isn't responding. check the connection between probe and ezo circuit on the whitebox shield.</li>
-      <li><strong>values look obviously wrong</strong> (pH near 7 in vat, orp positive, do above 5 mg/L): probe may need calibration. ask in the lab.</li>
+      <li><strong>"could not resolve host" or hangs:</strong> not on <code>sukumo-net</code>, or pi is offline.</li>
+      <li><strong>value is null:</strong> probe not responding. check probe ↔ ezo connection.</li>
+      <li><strong>values look wrong</strong> (pH ~7, orp positive, do &gt; 5 mg/L): probe needs calibration.</li>
     </ul>
 
     <h3>notes</h3>
@@ -300,15 +292,15 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     </ol>
 
     <h3>receiving live OSC (in the lab)</h3>
-    <p>only works when the pi is powered up and you are on the same network as it. for live performance and creative coding sessions in the room.</p>
+    <p>the pi sits behind a small travel router (gl.inet "mango") in the lab. the router broadcasts a wifi network called <code>sukumo-net</code>; the pi is reachable at <code>sukumo.local</code> on that network. live OSC works whenever the pi is powered up &mdash; no internet required, just the local <code>sukumo-net</code> wifi.</p>
     <ol class="tutorial">
       <li>
-        <strong>get on the same network as the pi.</strong>
-        <p>ask in the lab which network the pi is on, and the pi's address (hostname or IP). client isolation must be off &mdash; some networks block peer-to-peer traffic and OSC won't reach you.</p>
+        <strong>join the <code>sukumo-net</code> wifi.</strong>
+        <p>on your laptop, join the wifi named <code>sukumo-net</code>. password is on a label on the router (or ask in the lab). if the network name has changed, ask for the current one.</p>
       </li>
       <li>
-        <strong>verify with the JSON snapshot.</strong>
-        <p>open <code>http://&lt;pi-address&gt;:8080/api/latest</code> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, OSC won't either &mdash; fix the network first.</p>
+        <strong>verify you can reach the pi.</strong>
+        <p>open <a href="http://sukumo.local:8080/api/latest" target="_blank"><code>http://sukumo.local:8080/api/latest</code></a> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, you're not on <code>sukumo-net</code> &mdash; go back to step 1.</p>
       </li>
       <li>
         <strong>pick a tool.</strong>
@@ -334,7 +326,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
           <li>supercollider &rarr; <a href="examples/osc_receiver_supercollider.scd">osc_receiver_supercollider.scd</a></li>
           <li>python &rarr; <a href="examples/osc_receiver_python.py">osc_receiver_python.py</a></li>
         </ul>
-        <p>each listens on UDP port <code>9000</code>. messages arrive once per cycle (default 60s).</p>
+        <p>each listens on UDP port <code>9000</code>. messages arrive once per polling cycle (currently every 60 seconds).</p>
       </li>
       <li>
         <strong>map values.</strong>
@@ -343,8 +335,8 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
       <li>
         <strong>if it isn't working:</strong>
         <ul>
-          <li>same network as the pi? (step 1)</li>
-          <li>can you load <code>/api/latest</code>? if not, fix the network before debugging OSC.</li>
+          <li>on <code>sukumo-net</code>? (step 1)</li>
+          <li>can you load <a href="http://sukumo.local:8080/api/latest" target="_blank"><code>/api/latest</code></a>? if not, fix the network before debugging OSC.</li>
           <li>tool listening on UDP port <code>9000</code>?</li>
           <li>firewall blocking UDP? macOS: System Settings &rarr; Network &rarr; Firewall. Windows: Defender Firewall.</li>
         </ul>
