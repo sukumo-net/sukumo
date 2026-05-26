@@ -134,7 +134,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
 
       <li>
         <strong>verify you can reach the pi.</strong>
-        <pre>curl -s http://sukumo.local:8080/api/latest</pre>
+        <pre>curl -s http://192.168.8.220:8080/api/latest</pre>
         <p>json output = you're connected. hang or "could not resolve host" = wrong network.</p>
       </li>
 
@@ -145,7 +145,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
 
       <li>
         <strong>read.</strong>
-        <pre>echo "waiting 60 seconds..."; sleep 60; curl -s http://sukumo.local:8080/api/whitebox/read | python3 -m json.tool</pre>
+        <pre>echo "waiting 60 seconds..."; sleep 60; curl -s http://192.168.8.220:8080/api/whitebox/read | python3 -m json.tool</pre>
         <p>returns ph, orp, do after a 60-second settle:</p>
         <pre>{
     "do_mg_l": 1.19,
@@ -292,7 +292,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     </ol>
 
     <h3>receiving live OSC (in the lab)</h3>
-    <p>the pi sits behind a small travel router (gl.inet "mango") in the lab. the router broadcasts a wifi network called <code>sukumo-net</code>; the pi is reachable at <code>sukumo.local</code> on that network. live OSC works whenever the pi is powered up &mdash; no internet required, just the local <code>sukumo-net</code> wifi.</p>
+    <p>the pi sits behind a small travel router (gl.inet "mango") in the lab. the router broadcasts a wifi network called <code>sukumo-net</code>; the pi is reachable at <code>192.168.8.220</code> on that network. live OSC works whenever the pi is powered up &mdash; no internet required, just the local <code>sukumo-net</code> wifi.</p>
     <ol class="tutorial">
       <li>
         <strong>join the <code>sukumo-net</code> wifi.</strong>
@@ -300,7 +300,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
       </li>
       <li>
         <strong>verify you can reach the pi.</strong>
-        <p>open <a href="http://sukumo.local:8080/api/latest" target="_blank"><code>http://sukumo.local:8080/api/latest</code></a> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, you're not on <code>sukumo-net</code> &mdash; go back to step 1.</p>
+        <p>open <a href="http://192.168.8.220:8080/api/latest" target="_blank"><code>http://192.168.8.220:8080/api/latest</code></a> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, you're not on <code>sukumo-net</code> &mdash; go back to step 1.</p>
       </li>
       <li>
         <strong>pick a tool.</strong>
@@ -336,7 +336,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
         <strong>if it isn't working:</strong>
         <ul>
           <li>on <code>sukumo-net</code>? (step 1)</li>
-          <li>can you load <a href="http://sukumo.local:8080/api/latest" target="_blank"><code>/api/latest</code></a>? if not, fix the network before debugging OSC.</li>
+          <li>can you load <a href="http://192.168.8.220:8080/api/latest" target="_blank"><code>/api/latest</code></a>? if not, fix the network before debugging OSC.</li>
           <li>tool listening on UDP port <code>9000</code>?</li>
           <li>firewall blocking UDP? macOS: System Settings &rarr; Network &rarr; Firewall. Windows: Defender Firewall.</li>
         </ul>
