@@ -160,15 +160,15 @@
                 var day = days[dayI], row = day.rows[rowI];
                 showLive(toReading(row));
                 set('d-day', vatDay(day.date));
-                set('d-updated', 'replaying ' + day.date + ' &middot; ' + row[idx.t]);
+                set('d-updated', 'replaying day ' + vatDay(day.date) + ' &middot; ' + row[idx.t]);
                 rowI = (rowI + 1) % day.rows.length;
               }
               function renderLinks() {
                 daysEl.style.display = 'block';
-                daysEl.innerHTML = '<span class="muted">replaying recorded days &mdash; pick one:</span> ' +
+                daysEl.innerHTML = '<span class="muted">replaying &mdash; pick a day:</span> ' +
                   days.map(function (d, i) {
                     return '<a href="#" data-i="' + i + '" class="day-link' + (i === dayI ? ' active' : '') + '">' +
-                           d.date.slice(5).replace('-', '/') + '</a>';
+                           vatDay(d.date) + '</a>';
                   }).join('');
                 Array.prototype.forEach.call(daysEl.querySelectorAll('.day-link'), function (a) {
                   a.addEventListener('click', function (e) {
