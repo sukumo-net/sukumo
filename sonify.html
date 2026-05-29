@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sonify : Sukumo Vat Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="index.html" class="brand">SUKUMO</a>
+      <nav>
+        <a href="index.html#dashboard">dashboard</a>
+        <a href="index.html#contribute">contribute</a>
+        <a href="index.html#recipe">recipe</a>
+        <a href="index.html#build">build</a>
+        <a href="sonify.html">sonify</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <h1>sonify</h1>
+    <p>the vat's readings as sound, generated in your browser from the latest data the pi has published. each of the 8 electrodes is a voice in a slowly-evolving chord, placed in 3D space to mirror its position in the vat &mdash; <strong>use headphones</strong> to hear the spatial layout (surface above, bottom below, N/S front/back, E/W left/right).</p>
+    <p class="muted">this remote version reads the pi's published readings (updated roughly every 30 minutes when the pi is online). for the full-resolution live version (updates every minute), open <code>/sonify</code> on the lab network.</p>
+
+    <section class="explainer">
+      <h2>// how it maps</h2>
+      <dl class="protocol">
+        <dt>8 electrodes</dt>
+        <dd>each is a voice in a harmonic-series chord &mdash; bottom electrodes are the low partials, surface the high ones. each voice is positioned in 3D by its place in the vat. a voice gets louder and its pitch wavers as that electrode's voltage rises.</dd>
+        <dt>temperature</dt>
+        <dd>sets the root pitch of the whole chord. warmer = higher.</dd>
+        <dt>pH</dt>
+        <dd>brightness (a filter opening up). more alkaline = brighter.</dd>
+        <dt>ORP</dt>
+        <dd>spaciousness (reverb depth). more reducing (more negative) = more cavernous.</dd>
+        <dt>DO</dt>
+        <dd>a layer of air / breath noise. more dissolved oxygen = more audible breath.</dd>
+      </dl>
+    </section>
+
+    <div style="margin: 1rem 0;">
+      <button id="toggle">&#9654; start sound</button>
+      <span id="status" class="muted" style="margin-left: 1rem;">stopped</span>
+    </div>
+
+    <section class="readings-key">
+      <h2>// now playing</h2>
+      <dl id="readout">
+        <dt>source</dt><dd id="r-status">not started</dd>
+        <dt>reading time</dt><dd id="r-time">&ndash;</dd>
+        <dt>temperature</dt><dd id="r-temp">&ndash;</dd>
+        <dt>pH</dt><dd id="r-ph">&ndash;</dd>
+        <dt>ORP</dt><dd id="r-orp">&ndash;</dd>
+        <dt>DO</dt><dd id="r-do">&ndash;</dd>
+        <dt>electrodes</dt><dd id="r-elec">&ndash;</dd>
+      </dl>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>sukumo vat monitor &middot; bioclub tokyo</p>
+  </footer>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // The public "readings" Sheet the pi publishes to. Must be shared
+    // "anyone with link -> viewer". Replace with the actual Sheet ID.
+    var READINGS_SHEET_ID = "REPLACE_WITH_READINGS_SHEET_ID";
+    var GVIZ_URL = "https://docs.google.com/spreadsheets/d/" +
+      READINGS_SHEET_ID + "/gviz/tq?tqx=out:csv";
+
+    var POLL_MS = 180000;  // re-fetch every 3 min (publish is ~30 min)
+    var RAMP_S = 4.0;
+    var POS_RADIUS = 2.0;
+    var ELEC_MIN = -0.5, ELEC_MAX = 0.5;
+
+    var VOICES = [
+      { key: "btm_n", ratio: 1, pos: [ 0, -1, -1] },
+      { key: "btm_s", ratio: 2, pos: [ 0, -1,  1] },
+      { key: "mid_n", ratio: 3, pos: [ 0,  0, -1] },
+      { key: "mid_s", ratio: 4, pos: [ 0,  0,  1] },
+      { key: "sfc_w", ratio: 5, pos: [-1,  1,  0] },
+      { key: "sfc_e", ratio: 6, pos: [ 1,  1,  0] },
+      { key: "sfc_n", ratio: 8, pos: [ 0,  1, -1] },
+      { key: "sfc_s", ratio: 9, pos: [ 0,  1,  1] }
+    ];
+
+    var ctx = null, master = null, lowpass = null, dryGain = null,
+        wetGain = null, reverb = null, noiseGain = null;
+    var voices = [];
+    var pollTimer = null, running = false;
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+    function map(v, inMin, inMax, outMin, outMax) {
+      if (v === null || v === undefined || isNaN(v)) return (outMin + outMax) / 2;
+      var t = clamp((v - inMin) / (inMax - inMin), 0, 1);
+      return outMin + t * (outMax - outMin);
+    }
+
+    // ----- CSV parsing (gviz quotes string fields with ") -----
+    function parseCSVLine(line) {
+      var out = [], cur = "", inQ = false;
+      for (var i = 0; i < line.length; i++) {
+        var c = line[i];
+        if (inQ) {
+          if (c === '"') {
+            if (line[i + 1] === '"') { cur += '"'; i++; }
+            else inQ = false;
+          } else cur += c;
+        } else {
+          if (c === '"') inQ = true;
+          else if (c === ',') { out.push(cur); cur = ""; }
+          else cur += c;
+        }
+      }
+      out.push(cur);
+      return out;
+    }
+
+    function rowToReading(header, row) {
+      function col(name) {
+        var idx = header.indexOf(name);
+        if (idx < 0 || idx >= row.length) return null;
+        var v = parseFloat(row[idx]);
+        return isNaN(v) ? null : v;
+      }
+      var tsIdx = header.indexOf("timestamp");
+      return {
+        timestamp_str: (tsIdx >= 0 && tsIdx < row.length) ? row[tsIdx] : "",
+        temperature_c: col("temperature_c"),
+        electrodes: {
+          sfc_n: col("sfc_n"), sfc_s: col("sfc_s"), sfc_e: col("sfc_e"), sfc_w: col("sfc_w"),
+          mid_n: col("mid_n"), mid_s: col("mid_s"), btm_n: col("btm_n"), btm_s: col("btm_s")
+        },
+        manual: { ph: col("ph"), orp_mv: col("orp_mv"), do_mg_l: col("do_mg_l") }
+      };
+    }
+
+    function fetchLatest() {
+      return fetch(GVIZ_URL, { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.text() : null; })
+        .then(function (csv) {
+          if (!csv) return null;
+          var lines = csv.split(/\r?\n/).filter(function (l) { return l !== ""; });
+          if (lines.length < 2) return null;
+          var header = parseCSVLine(lines[0]).map(function (h) {
+            return h.trim().toLowerCase();
+          });
+          var last = parseCSVLine(lines[lines.length - 1]);
+          return rowToReading(header, last);
+        })
+        .catch(function () { return null; });
+    }
+
+    // ----- Web Audio engine (mirrors the pi-local /sonify) -----
+    function makeImpulse(seconds, decay) {
+      var rate = ctx.sampleRate, len = Math.floor(rate * seconds);
+      var buf = ctx.createBuffer(2, len, rate);
+      for (var ch = 0; ch < 2; ch++) {
+        var d = buf.getChannelData(ch);
+        for (var i = 0; i < len; i++)
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+      return buf;
+    }
+
+    function makeNoiseSource() {
+      var rate = ctx.sampleRate;
+      var buf = ctx.createBuffer(1, rate * 2, rate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      var src = ctx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      return src;
+    }
+
+    function buildGraph() {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = 0.0;
+      lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass"; lowpass.frequency.value = 1200; lowpass.Q.value = 0.7;
+      reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(3.0, 3.0);
+      dryGain = ctx.createGain(); dryGain.gain.value = 0.7;
+      wetGain = ctx.createGain(); wetGain.gain.value = 0.3;
+      master.connect(lowpass);
+      lowpass.connect(dryGain); lowpass.connect(reverb); reverb.connect(wetGain);
+      dryGain.connect(ctx.destination); wetGain.connect(ctx.destination);
+
+      var L = ctx.listener;
+      if (L.forwardX) {
+        L.forwardX.value = 0; L.forwardY.value = 0; L.forwardZ.value = -1;
+        L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
+      } else if (L.setOrientation) { L.setOrientation(0, 0, -1, 0, 1, 0); }
+
+      voices = VOICES.map(function (v) {
+        var osc = ctx.createOscillator();
+        osc.type = "triangle"; osc.frequency.value = 110 * v.ratio;
+        var g = ctx.createGain(); g.gain.value = 0.0;
+        var panner = ctx.createPanner();
+        panner.panningModel = "HRTF"; panner.distanceModel = "inverse"; panner.refDistance = 1;
+        var p = v.pos, x = p[0] * POS_RADIUS, y = p[1] * POS_RADIUS, z = p[2] * POS_RADIUS;
+        if (panner.positionX) {
+          panner.positionX.value = x; panner.positionY.value = y; panner.positionZ.value = z;
+        } else if (panner.setPosition) { panner.setPosition(x, y, z); }
+        osc.connect(g); g.connect(panner); panner.connect(master); osc.start();
+        return { osc: osc, gain: g, panner: panner, ratio: v.ratio, key: v.key };
+      });
+
+      var noise = makeNoiseSource();
+      var nf = ctx.createBiquadFilter();
+      nf.type = "bandpass"; nf.frequency.value = 2000; nf.Q.value = 0.5;
+      noiseGain = ctx.createGain(); noiseGain.gain.value = 0.0;
+      noise.connect(nf); nf.connect(noiseGain); noiseGain.connect(master); noise.start();
+    }
+
+    function applyReadings(data) {
+      if (!ctx) return;
+      var when = ctx.currentTime + RAMP_S;
+      var elec = data.electrodes || {}, manual = data.manual || {};
+      var root = map(data.temperature_c, 20, 35, 90, 180);
+
+      voices.forEach(function (voice) {
+        var raw = elec[voice.key];
+        var base = root * voice.ratio;
+        var norm = map(raw, ELEC_MIN, ELEC_MAX, 0, 1);
+        var gain = 0.04 + 0.16 * norm;
+        var detune = (norm - 0.5) * 60;
+        voice.osc.frequency.linearRampToValueAtTime(base, when);
+        voice.osc.detune.linearRampToValueAtTime(detune, when);
+        var target = (raw === null || raw === undefined) ? 0.0 : gain;
+        voice.gain.gain.linearRampToValueAtTime(target, when);
+      });
+
+      lowpass.frequency.linearRampToValueAtTime(map(manual.ph, 9, 12, 500, 5000), when);
+      var wet = map(manual.orp_mv, -700, 0, 0.6, 0.1);
+      wetGain.gain.linearRampToValueAtTime(wet, when);
+      dryGain.gain.linearRampToValueAtTime(1 - wet * 0.6, when);
+      noiseGain.gain.linearRampToValueAtTime(map(manual.do_mg_l, 0, 8, 0.0, 0.07), when);
+      master.gain.linearRampToValueAtTime(0.5, when);
+
+      updateReadout(data);
+    }
+
+    function fmt(v, digits) {
+      if (v === null || v === undefined || isNaN(v)) return "&ndash;";
+      return Number(v).toFixed(digits === undefined ? 2 : digits);
+    }
+
+    function updateReadout(data) {
+      var m = data.manual || {}, e = data.electrodes || {};
+      document.getElementById("r-status").textContent = "published readings sheet";
+      document.getElementById("r-time").textContent = data.timestamp_str || "–";
+      document.getElementById("r-temp").innerHTML = fmt(data.temperature_c) + " &deg;C";
+      document.getElementById("r-ph").innerHTML = fmt(m.ph);
+      document.getElementById("r-orp").innerHTML = fmt(m.orp_mv, 1) + " mV";
+      document.getElementById("r-do").innerHTML = fmt(m.do_mg_l) + " mg/L";
+      var parts = VOICES.map(function (v) {
+        var val = e[v.key];
+        return v.key + "=" + (val === null || val === undefined ? "&ndash;" : fmt(val));
+      });
+      document.getElementById("r-elec").innerHTML = parts.join("&nbsp;&nbsp;");
+    }
+
+    function poll() {
+      fetchLatest().then(function (data) {
+        if (data) applyReadings(data);
+        else document.getElementById("status").textContent =
+          "playing (no data yet — waiting for the pi to publish)";
+      });
+    }
+
+    function start() {
+      if (running) return;
+      if (READINGS_SHEET_ID.indexOf("REPLACE_WITH") === 0) {
+        document.getElementById("status").textContent =
+          "not configured — readings sheet id missing";
+        return;
+      }
+      buildGraph(); ctx.resume(); poll();
+      pollTimer = setInterval(poll, POLL_MS); running = true;
+      document.getElementById("toggle").innerHTML = "&#9632; stop sound";
+      document.getElementById("status").textContent = "playing";
+    }
+
+    function stop() {
+      if (!running) return;
+      clearInterval(pollTimer);
+      if (master) master.gain.linearRampToValueAtTime(0.0, ctx.currentTime + 0.5);
+      setTimeout(function () { if (ctx) ctx.close(); ctx = null; }, 700);
+      running = false;
+      document.getElementById("toggle").innerHTML = "&#9654; start sound";
+      document.getElementById("status").textContent = "stopped";
+      document.getElementById("r-status").textContent = "stopped";
+    }
+
+    document.getElementById("toggle").addEventListener("click", function () {
+      if (running) stop(); else start();
+    });
+  })();
+  </script>
+</body>
+</html>

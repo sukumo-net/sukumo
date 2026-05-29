@@ -18,6 +18,7 @@
         <a href="#contribute">contribute</a>
         <a href="#recipe">recipe</a>
         <a href="#build">build</a>
+        <a href="sonify.html">sonify</a>
       </nav>
     </div>
   </header>
@@ -51,13 +52,13 @@
       <h2>// what's being measured</h2>
       <dl>
         <dt>temperature</dt>
-        <dd>vat liquid temperature in &deg;C. healthy sukumo sits around 25&ndash;30&deg;C (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8342947/" target="_blank">Aino et al., 2018</a>). read continuously from a DS18B20 probe at mid-depth.</dd>
+        <dd>vat liquid temperature in &deg;C, read continuously from a DS18B20 probe at mid-depth. sukumo fermentation is kept warm &mdash; lab studies maintain it at ~26&deg;C (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>), and the traditional recipe (below) calls for above 30&deg;C during early fermentation. the first indigo-reducing bacterium described from these vats tolerates a wide band, 10&ndash;50&deg;C with an optimum near 30&deg;C (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6153312/" target="_blank">Aino et al., 2018</a>).</dd>
 
         <dt>electrodes (surface / mid / bottom)</dt>
         <dd>voltage from carbon paper strips on the vat wall at three depths. shifts with the vat's chemistry. 4 at surface (N/S/E/W), 2 at mid (N/S), 2 at bottom (N/S). read continuously against a shared reference.</dd>
 
         <dt>pH</dt>
-        <dd>acidity / alkalinity, manual reading. fermenting sukumo is strongly alkaline, typically pH 10.3&ndash;11 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8342947/" target="_blank">Aino et al., 2018</a>).</dd>
+        <dd>acidity / alkalinity, manual reading. fermenting sukumo is strongly alkaline, typically pH 10.3&ndash;11 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8342947/" target="_blank">Tu et al., 2021</a>).</dd>
 
         <dt>ORP (oxidation-reduction potential)</dt>
         <dd>how chemically reducing the vat is, in millivolts. more negative = more reducing. manual reading.</dd>
@@ -86,7 +87,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
       <p>at each pixel the two are summed and used as the probability of placing a dot, capped at 55%. seeded from the current readings.</p>
 
       <h2>// orp target</h2>
-      <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. the tick marks &minus;600 mV, cited as the industrial threshold for indigo reduction (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9430710/" target="_blank">Li et al., 2022</a>). the pointer turns red above &minus;550 mV.</p>
+      <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. indigo dyes only in its reduced, water-soluble (leuco) form and reverts to insoluble blue once reoxidised (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0013468602000282" target="_blank">Roessler et al., 2002</a>). in sukumo fermentation, reduction begins as ORP falls to about &minus;500 mV, and the indigo-reducing bacteria operate below &minus;600 mV (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>); the bar marks &minus;600 mV as its reference and the pointer turns red above &minus;550 mV.</p>
     </section>
 
     <!-- ============================================================ -->
@@ -265,6 +266,10 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     <!-- ============================================================ -->
     <h2 id="build">// build</h2>
     <p>using the vat data in your own work: sound, visuals, anything. two paths &mdash; the public archive (csv, anywhere, any time) and the live OSC stream (lab-only, while the pi is powered up).</p>
+
+    <h3>hear it now</h3>
+    <p>a ready-made browser sonification turns the vat's readings into sound &mdash; 8 electrodes as a spatial chord, with temperature, ph, orp and do shaping pitch, brightness, space and air. works from anywhere (reads the pi's published readings); <strong>use headphones</strong> for the 3D positioning.</p>
+    <p><a href="sonify.html">open the sonification &rarr;</a></p>
 
     <h3>working from the archive</h3>
     <p>for analysis, rendering past sessions, or making pieces from previous days.</p>
