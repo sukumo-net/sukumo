@@ -8,6 +8,49 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* top-down vat graphic — framed like the e-ink panel on the dashboard */
+    .vat-stage { border: none; background: var(--paper); padding: 0; margin: 0; display: flex; justify-content: center; }
+    #vat-canvas { width: 100%; max-width: 420px; aspect-ratio: 1 / 1; display: block; touch-action: none; }
+    /* two-column instrument layout: graphic left, controls + sliders right */
+    .panel { display: flex; flex-wrap: wrap; gap: 1rem 1.8rem; align-items: flex-start; margin: 1rem 0; }
+    .panel-graphic { flex: 0 1 360px; max-width: 100%; min-width: 240px; }
+    .panel-controls { flex: 1 1 280px; min-width: 250px; }
+    /* electrode colour key + live voltages — full width below the panel */
+    .vat-legend {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 0.18rem 1.6rem; margin: 1.2rem 0 0; font-size: 0.8rem; color: var(--ink-soft);
+    }
+    .vat-legend .leg { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+    .vat-legend i { width: 10px; height: 10px; flex: 0 0 auto; }
+    .vat-legend .lv { margin-left: auto; font-variant-numeric: tabular-nums; }
+    /* transport row */
+    .controls { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.4rem 1rem; margin: 0 0 0.9rem; }
+    .source-line { font-size: 0.8rem; flex-basis: 100%; }
+    .filters { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; }
+    .filters-label { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 0.1rem; }
+    .filter-ctl { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
+    .filter-ctl > span { width: 6.5em; text-transform: lowercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+    .filter-ctl > .fv { width: 6em; text-align: right; color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    /* track echoes the diagram arcs: dotted/faint, filling to solid as you raise it */
+    input[type="range"].fx {
+      -webkit-appearance: none; appearance: none; flex: 1; height: 16px; cursor: pointer;
+      border: none; outline: none; background:
+        linear-gradient(var(--indigo), var(--indigo)) no-repeat left center / var(--p, 0%) 2px,
+        repeating-linear-gradient(to right, var(--ink-faint) 0 2px, transparent 2px 6px) no-repeat left center / 100% 2px;
+    }
+    input[type="range"].fx::-webkit-slider-runnable-track { background: transparent; height: 2px; border: none; }
+    input[type="range"].fx::-moz-range-track { background: transparent; height: 2px; border: none; }
+    input[type="range"].fx::-moz-range-progress { background: transparent; }
+    input[type="range"].fx::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 8px; height: 14px; margin-top: -6px;
+      background: var(--indigo); border: none; cursor: pointer;
+    }
+    input[type="range"].fx::-moz-range-thumb {
+      width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
+    }
+    input[type="range"].fx:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
+  </style>
 </head>
 <body>
   <header>
@@ -26,40 +69,47 @@
   <main id="top">
 
     <h1>sonify</h1>
-    <p>the vat's readings as sound, generated in your browser from the latest data the pi has published. each of the 8 electrodes is a voice in a slowly-evolving chord, placed in 3D space to mirror its position in the vat &mdash; <strong>use headphones</strong> to hear the spatial layout (surface above, bottom below, N/S front/back, E/W left/right).</p>
-    <p class="muted">this remote version reads the pi's published readings (updated roughly every 30 minutes when the pi is online). for the full-resolution live version (updates every minute), open <code>/sonify</code> on the lab network.</p>
+    <p>each of the vat's 8 electrodes reads a voltage and becomes a note in a chord, placed in 3D where that electrode sits in the vat &mdash; <strong>use headphones</strong>. raise a slider to blend in temperature, pH, ORP or DO. <span class="muted">demo data until the pi's sheet is live.</span></p>
+
+    <div class="panel">
+      <div class="panel-graphic">
+        <div class="vat-stage">
+          <canvas id="vat-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="panel-controls">
+        <div class="controls">
+          <button id="toggle">&#9654; start sound</button>
+          <span id="status" class="muted">stopped</span>
+          <span id="source-line" class="muted source-line">&ndash;</span>
+        </div>
+
+        <div class="filters" id="filters">
+          <span class="filters-label">shape the sound:</span>
+          <label class="filter-ctl"><span>temperature</span><input type="range" class="fx" data-f="temp" min="0" max="100" value="0" aria-label="temperature intensity"><b class="fv" id="fv-temp">&ndash;</b></label>
+          <label class="filter-ctl"><span>pH</span><input type="range" class="fx" data-f="ph" min="0" max="100" value="0" aria-label="pH intensity"><b class="fv" id="fv-ph">&ndash;</b></label>
+          <label class="filter-ctl"><span>ORP</span><input type="range" class="fx" data-f="orp" min="0" max="100" value="0" aria-label="ORP intensity"><b class="fv" id="fv-orp">&ndash;</b></label>
+          <label class="filter-ctl"><span>DO</span><input type="range" class="fx" data-f="do" min="0" max="100" value="0" aria-label="DO intensity"><b class="fv" id="fv-do">&ndash;</b></label>
+        </div>
+      </div>
+    </div>
+
+    <div id="vat-legend" class="vat-legend" aria-label="electrode colour key and live voltages"></div>
 
     <section class="explainer">
       <h2>// how it maps</h2>
       <dl class="protocol">
         <dt>8 electrodes</dt>
-        <dd>each is a voice in a harmonic-series chord &mdash; bottom electrodes are the low partials, surface the high ones. each voice is positioned in 3D by its place in the vat. a voice gets louder and its pitch wavers as that electrode's voltage rises.</dd>
+        <dd>each a voice in a 3D chord; louder + pitch wavers as its voltage rises.</dd>
         <dt>temperature</dt>
-        <dd>sets the root pitch of the whole chord. warmer = higher.</dd>
+        <dd>root pitch &mdash; warmer = higher.</dd>
         <dt>pH</dt>
-        <dd>brightness (a filter opening up). more alkaline = brighter.</dd>
+        <dd>brightness &mdash; more alkaline = brighter.</dd>
         <dt>ORP</dt>
-        <dd>spaciousness (reverb depth). more reducing (more negative) = more cavernous.</dd>
+        <dd>reverb space &mdash; more reducing = more cavernous.</dd>
         <dt>DO</dt>
-        <dd>a layer of air / breath noise. more dissolved oxygen = more audible breath.</dd>
-      </dl>
-    </section>
-
-    <div style="margin: 1rem 0;">
-      <button id="toggle">&#9654; start sound</button>
-      <span id="status" class="muted" style="margin-left: 1rem;">stopped</span>
-    </div>
-
-    <section class="readings-key">
-      <h2>// now playing</h2>
-      <dl id="readout">
-        <dt>source</dt><dd id="r-status">not started</dd>
-        <dt>reading time</dt><dd id="r-time">&ndash;</dd>
-        <dt>temperature</dt><dd id="r-temp">&ndash;</dd>
-        <dt>pH</dt><dd id="r-ph">&ndash;</dd>
-        <dt>ORP</dt><dd id="r-orp">&ndash;</dd>
-        <dt>DO</dt><dd id="r-do">&ndash;</dd>
-        <dt>electrodes</dt><dd id="r-elec">&ndash;</dd>
+        <dd>breath &mdash; more oxygen = louder.</dd>
       </dl>
     </section>
 
@@ -73,49 +123,194 @@
   (function () {
     "use strict";
 
+    // ---------------------------------------------------------------
+    // config
+    // ---------------------------------------------------------------
     // The public "readings" Sheet the pi publishes to. Must be shared
     // "anyone with link -> viewer". Replace with the actual Sheet ID.
+    // While it's still the placeholder, the page runs in DEMO mode so the
+    // graphic + sound can be previewed; it switches to live data
+    // automatically once a real id is filled in.
     var READINGS_SHEET_ID = "REPLACE_WITH_READINGS_SHEET_ID";
     var GVIZ_URL = "https://docs.google.com/spreadsheets/d/" +
       READINGS_SHEET_ID + "/gviz/tq?tqx=out:csv";
+    var demoMode = READINGS_SHEET_ID.indexOf("REPLACE_WITH") === 0;
 
-    var POLL_MS = 180000;  // re-fetch every 3 min (publish is ~30 min)
-    var RAMP_S = 4.0;
-    var POS_RADIUS = 2.0;
+    var POLL_MS = 180000;       // live re-fetch interval (publish is ~30 min)
+    var ROOT_HZ = 110;          // chord root (raised by the temperature filter)
     var ELEC_MIN = -0.5, ELEC_MAX = 0.5;
+    var IDLE_LEVEL = 0.12;      // resting activity when stopped / no data
+    var EASE = 0.08;            // per-frame easing of visible levels
+    var AUDIO_TC = 0.25;        // setTargetAtTime time constant (s)
+    var AUDIO_UPDATE_MS = 50;   // throttle audio param updates
+    var MASTER_RAMP = 0.8;      // master fade in/out (s)
+    var POS_RADIUS = 2.0;       // 3D panner spread
 
+    // Each electrode: harmonic ratio, 3D audio position [x,y,z], and its
+    // top-down placement on the canvas (compass direction + depth ring,
+    // 1.0 = surface/outer, 0.62 = mid, 0.32 = bottom/inner).
+    // `col` is each electrode's wire colour (docs/HARDWARE.md ADS channel map),
+    // nudged a touch darker/saturated where needed so it reads as 1px dither on
+    // the pale paper (pure yellow / pastels would wash out).
     var VOICES = [
-      { key: "btm_n", ratio: 1, pos: [ 0, -1, -1] },
-      { key: "btm_s", ratio: 2, pos: [ 0, -1,  1] },
-      { key: "mid_n", ratio: 3, pos: [ 0,  0, -1] },
-      { key: "mid_s", ratio: 4, pos: [ 0,  0,  1] },
-      { key: "sfc_w", ratio: 5, pos: [-1,  1,  0] },
-      { key: "sfc_e", ratio: 6, pos: [ 1,  1,  0] },
-      { key: "sfc_n", ratio: 8, pos: [ 0,  1, -1] },
-      { key: "sfc_s", ratio: 9, pos: [ 0,  1,  1] }
+      { key: "btm_n", ratio: 1, pos: [ 0, -1, -1], dir: "N", depth: 0.32, col: "#5995bb", wire: "light blue" },
+      { key: "btm_s", ratio: 2, pos: [ 0, -1,  1], dir: "S", depth: 0.32, col: "#2b4c92", wire: "blue" },
+      { key: "mid_n", ratio: 3, pos: [ 0,  0, -1], dir: "N", depth: 0.62, col: "#68a768", wire: "light green" },
+      { key: "mid_s", ratio: 4, pos: [ 0,  0,  1], dir: "S", depth: 0.62, col: "#327847", wire: "green" },
+      { key: "sfc_w", ratio: 5, pos: [-1,  1,  0], dir: "W", depth: 1.0,  col: "#9e2422", wire: "red" },
+      { key: "sfc_e", ratio: 6, pos: [ 1,  1,  0], dir: "E", depth: 1.0,  col: "#c8a200", wire: "yellow" },
+      { key: "sfc_n", ratio: 8, pos: [ 0,  1, -1], dir: "N", depth: 1.0,  col: "#d24d8c", wire: "pink" },
+      { key: "sfc_s", ratio: 9, pos: [ 0,  1,  1], dir: "S", depth: 1.0,  col: "#bf7127", wire: "orange" }
     ];
+    var DIR_VEC = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
 
-    var ctx = null, master = null, lowpass = null, dryGain = null,
-        wetGain = null, reverb = null, noiseGain = null;
-    var voices = [];
-    var pollTimer = null, running = false;
+    // palette (mirrors style.css / the e-ink panel)
+    var C_PAPER = "#eef1f4", C_INK = "#111111", C_INDIGO = "#1c2638",
+        C_FAINT = "#8c95a0";
+
+    // per-electrode wire colours split into RGB channels for fast blending
+    var WR = new Float32Array(VOICES.length),
+        WG = new Float32Array(VOICES.length),
+        WB = new Float32Array(VOICES.length);
+    VOICES.forEach(function (v, i) {
+      var n = parseInt(v.col.slice(1), 16);
+      WR[i] = (n >> 16) & 255; WG[i] = (n >> 8) & 255; WB[i] = n & 255;
+    });
+
+    // ---------------------------------------------------------------
+    // shared level state (drives both audio and graphic)
+    // ---------------------------------------------------------------
+    var targetLevels = {}, vizLevels = {};
+    VOICES.forEach(function (v) {
+      targetLevels[v.key] = IDLE_LEVEL;
+      vizLevels[v.key] = IDLE_LEVEL;
+    });
+    var latestData = null;
+
+    // optional environmental "filters" the listener blends in to shape the
+    // electrode chord. fx = intensity 0..1 (0 = off = plain 8-electrode version).
+    var fx = { temp: 0, ph: 0, orp: 0, do: 0 };
+    var P = { temp: null, ph: null, orp: null, do: null };  // current param values
 
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-    function map(v, inMin, inMax, outMin, outMax) {
-      if (v === null || v === undefined || isNaN(v)) return (outMin + outMax) / 2;
-      var t = clamp((v - inMin) / (inMax - inMin), 0, 1);
-      return outMin + t * (outMax - outMin);
+    function map(v, a, b, c, d) {
+      if (v === null || v === undefined || isNaN(v)) return (c + d) / 2;
+      var t = clamp((v - a) / (b - a), 0, 1);
+      return c + t * (d - c);
+    }
+    function normElec(v) {
+      if (v === null || v === undefined || isNaN(v)) return null;
+      return clamp((v - ELEC_MIN) / (ELEC_MAX - ELEC_MIN), 0, 1);
     }
 
-    // ----- CSV parsing (gviz quotes string fields with ") -----
+    // ---------------------------------------------------------------
+    // audio engine (8 electrodes + toggleable environmental filters)
+    // ---------------------------------------------------------------
+    var actx = null, master = null, voices = [],
+        lowpass = null, dryGain = null, wetGain = null, noiseGain = null,
+        running = false, pollTimer = null, lastAudio = 0;
+
+    function makeImpulse(seconds, decay) {
+      var rate = actx.sampleRate, len = Math.floor(rate * seconds);
+      var buf = actx.createBuffer(2, len, rate);
+      for (var ch = 0; ch < 2; ch++) {
+        var d = buf.getChannelData(ch);
+        for (var i = 0; i < len; i++)
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+      return buf;
+    }
+
+    function makeNoiseSource() {
+      var rate = actx.sampleRate;
+      var buf = actx.createBuffer(1, rate * 2, rate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      var src = actx.createBufferSource();
+      src.buffer = buf; src.loop = true;
+      return src;
+    }
+
+    function buildGraph() {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      master = actx.createGain(); master.gain.value = 0.0;
+
+      lowpass = actx.createBiquadFilter();
+      lowpass.type = "lowpass"; lowpass.frequency.value = 2600; lowpass.Q.value = 0.7;
+      var reverb = actx.createConvolver(); reverb.buffer = makeImpulse(3.0, 3.0);
+      dryGain = actx.createGain(); dryGain.gain.value = 0.8;
+      wetGain = actx.createGain(); wetGain.gain.value = 0.26;
+      master.connect(lowpass);
+      lowpass.connect(dryGain); lowpass.connect(reverb); reverb.connect(wetGain);
+      dryGain.connect(actx.destination); wetGain.connect(actx.destination);
+
+      var L = actx.listener;
+      if (L.forwardX) {
+        L.forwardX.value = 0; L.forwardY.value = 0; L.forwardZ.value = -1;
+        L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
+      } else if (L.setOrientation) { L.setOrientation(0, 0, -1, 0, 1, 0); }
+
+      voices = VOICES.map(function (v) {
+        var osc = actx.createOscillator();
+        osc.type = "triangle"; osc.frequency.value = ROOT_HZ * v.ratio;
+        var g = actx.createGain(); g.gain.value = 0.0;
+        var panner = actx.createPanner();
+        panner.panningModel = "HRTF"; panner.distanceModel = "inverse";
+        panner.refDistance = 1;
+        var x = v.pos[0] * POS_RADIUS, y = v.pos[1] * POS_RADIUS,
+            z = v.pos[2] * POS_RADIUS;
+        if (panner.positionX) {
+          panner.positionX.value = x; panner.positionY.value = y;
+          panner.positionZ.value = z;
+        } else if (panner.setPosition) { panner.setPosition(x, y, z); }
+        osc.connect(g); g.connect(panner); panner.connect(master); osc.start();
+        return { osc: osc, gain: g, key: v.key, ratio: v.ratio };
+      });
+
+      // DO "breath" layer — silent unless the DO filter is on
+      var noise = makeNoiseSource();
+      var nf = actx.createBiquadFilter();
+      nf.type = "bandpass"; nf.frequency.value = 2000; nf.Q.value = 0.5;
+      noiseGain = actx.createGain(); noiseGain.gain.value = 0.0;
+      noise.connect(nf); nf.connect(noiseGain); noiseGain.connect(master); noise.start();
+    }
+
+    function updateAudio() {
+      if (!actx || !running) return;
+      var now = actx.currentTime;
+
+      // temperature -> chord root pitch, blended from neutral by the intensity
+      var root = ROOT_HZ;
+      if (P.temp != null) root += fx.temp * (map(P.temp, 20, 35, 90, 180) - ROOT_HZ);
+      voices.forEach(function (voice) {
+        var v = vizLevels[voice.key];
+        voice.osc.frequency.setTargetAtTime(root * voice.ratio, now, AUDIO_TC);
+        voice.gain.gain.setTargetAtTime(0.04 + 0.16 * v, now, AUDIO_TC);
+        voice.osc.detune.setTargetAtTime((v - 0.5) * 60, now, AUDIO_TC);
+      });
+
+      // pH -> brightness, ORP -> space, DO -> breath; each blended by intensity
+      var cutoff = 2600;
+      if (P.ph != null) cutoff += fx.ph * (map(P.ph, 9, 12, 500, 5000) - 2600);
+      lowpass.frequency.setTargetAtTime(cutoff, now, AUDIO_TC);
+      var wet = 0.26;
+      if (P.orp != null) wet += fx.orp * (map(P.orp, -700, 0, 0.6, 0.1) - 0.26);
+      wetGain.gain.setTargetAtTime(wet, now, AUDIO_TC);
+      dryGain.gain.setTargetAtTime(1 - wet * 0.6, now, AUDIO_TC);
+      var nz = (P.do != null) ? fx.do * map(P.do, 0, 8, 0.0, 0.07) : 0.0;
+      noiseGain.gain.setTargetAtTime(nz, now, AUDIO_TC);
+    }
+
+    // ---------------------------------------------------------------
+    // data (electrodes only)
+    // ---------------------------------------------------------------
     function parseCSVLine(line) {
       var out = [], cur = "", inQ = false;
       for (var i = 0; i < line.length; i++) {
         var c = line[i];
         if (inQ) {
           if (c === '"') {
-            if (line[i + 1] === '"') { cur += '"'; i++; }
-            else inQ = false;
+            if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false;
           } else cur += c;
         } else {
           if (c === '"') inQ = true;
@@ -135,14 +330,15 @@
         return isNaN(v) ? null : v;
       }
       var tsIdx = header.indexOf("timestamp");
+      var elec = {};
+      VOICES.forEach(function (v) { elec[v.key] = col(v.key); });
       return {
         timestamp_str: (tsIdx >= 0 && tsIdx < row.length) ? row[tsIdx] : "",
-        temperature_c: col("temperature_c"),
-        electrodes: {
-          sfc_n: col("sfc_n"), sfc_s: col("sfc_s"), sfc_e: col("sfc_e"), sfc_w: col("sfc_w"),
-          mid_n: col("mid_n"), mid_s: col("mid_s"), btm_n: col("btm_n"), btm_s: col("btm_s")
-        },
-        manual: { ph: col("ph"), orp_mv: col("orp_mv"), do_mg_l: col("do_mg_l") }
+        electrodes: elec,
+        temp: col("temperature_c"),
+        ph: col("ph"),
+        orp: col("orp_mv"),
+        do: col("do_mg_l")
       };
     }
 
@@ -162,150 +358,412 @@
         .catch(function () { return null; });
     }
 
-    // ----- Web Audio engine (mirrors the pi-local /sonify) -----
-    function makeImpulse(seconds, decay) {
-      var rate = ctx.sampleRate, len = Math.floor(rate * seconds);
-      var buf = ctx.createBuffer(2, len, rate);
-      for (var ch = 0; ch < 2; ch++) {
-        var d = buf.getChannelData(ch);
-        for (var i = 0; i < len; i++)
-          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
-      }
-      return buf;
-    }
-
-    function makeNoiseSource() {
-      var rate = ctx.sampleRate;
-      var buf = ctx.createBuffer(1, rate * 2, rate);
-      var d = buf.getChannelData(0);
-      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      var src = ctx.createBufferSource();
-      src.buffer = buf; src.loop = true;
-      return src;
-    }
-
-    function buildGraph() {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      master = ctx.createGain(); master.gain.value = 0.0;
-      lowpass = ctx.createBiquadFilter();
-      lowpass.type = "lowpass"; lowpass.frequency.value = 1200; lowpass.Q.value = 0.7;
-      reverb = ctx.createConvolver(); reverb.buffer = makeImpulse(3.0, 3.0);
-      dryGain = ctx.createGain(); dryGain.gain.value = 0.7;
-      wetGain = ctx.createGain(); wetGain.gain.value = 0.3;
-      master.connect(lowpass);
-      lowpass.connect(dryGain); lowpass.connect(reverb); reverb.connect(wetGain);
-      dryGain.connect(ctx.destination); wetGain.connect(ctx.destination);
-
-      var L = ctx.listener;
-      if (L.forwardX) {
-        L.forwardX.value = 0; L.forwardY.value = 0; L.forwardZ.value = -1;
-        L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
-      } else if (L.setOrientation) { L.setOrientation(0, 0, -1, 0, 1, 0); }
-
-      voices = VOICES.map(function (v) {
-        var osc = ctx.createOscillator();
-        osc.type = "triangle"; osc.frequency.value = 110 * v.ratio;
-        var g = ctx.createGain(); g.gain.value = 0.0;
-        var panner = ctx.createPanner();
-        panner.panningModel = "HRTF"; panner.distanceModel = "inverse"; panner.refDistance = 1;
-        var p = v.pos, x = p[0] * POS_RADIUS, y = p[1] * POS_RADIUS, z = p[2] * POS_RADIUS;
-        if (panner.positionX) {
-          panner.positionX.value = x; panner.positionY.value = y; panner.positionZ.value = z;
-        } else if (panner.setPosition) { panner.setPosition(x, y, z); }
-        osc.connect(g); g.connect(panner); panner.connect(master); osc.start();
-        return { osc: osc, gain: g, panner: panner, ratio: v.ratio, key: v.key };
+    function setTargetsFromElectrodes(elec) {
+      VOICES.forEach(function (v) {
+        var n = normElec(elec ? elec[v.key] : null);
+        targetLevels[v.key] = (n === null) ? IDLE_LEVEL * 0.4 : n;
       });
-
-      var noise = makeNoiseSource();
-      var nf = ctx.createBiquadFilter();
-      nf.type = "bandpass"; nf.frequency.value = 2000; nf.Q.value = 0.5;
-      noiseGain = ctx.createGain(); noiseGain.gain.value = 0.0;
-      noise.connect(nf); nf.connect(noiseGain); noiseGain.connect(master); noise.start();
-    }
-
-    function applyReadings(data) {
-      if (!ctx) return;
-      var when = ctx.currentTime + RAMP_S;
-      var elec = data.electrodes || {}, manual = data.manual || {};
-      var root = map(data.temperature_c, 20, 35, 90, 180);
-
-      voices.forEach(function (voice) {
-        var raw = elec[voice.key];
-        var base = root * voice.ratio;
-        var norm = map(raw, ELEC_MIN, ELEC_MAX, 0, 1);
-        var gain = 0.04 + 0.16 * norm;
-        var detune = (norm - 0.5) * 60;
-        voice.osc.frequency.linearRampToValueAtTime(base, when);
-        voice.osc.detune.linearRampToValueAtTime(detune, when);
-        var target = (raw === null || raw === undefined) ? 0.0 : gain;
-        voice.gain.gain.linearRampToValueAtTime(target, when);
-      });
-
-      lowpass.frequency.linearRampToValueAtTime(map(manual.ph, 9, 12, 500, 5000), when);
-      var wet = map(manual.orp_mv, -700, 0, 0.6, 0.1);
-      wetGain.gain.linearRampToValueAtTime(wet, when);
-      dryGain.gain.linearRampToValueAtTime(1 - wet * 0.6, when);
-      noiseGain.gain.linearRampToValueAtTime(map(manual.do_mg_l, 0, 8, 0.0, 0.07), when);
-      master.gain.linearRampToValueAtTime(0.5, when);
-
-      updateReadout(data);
-    }
-
-    function fmt(v, digits) {
-      if (v === null || v === undefined || isNaN(v)) return "&ndash;";
-      return Number(v).toFixed(digits === undefined ? 2 : digits);
-    }
-
-    function updateReadout(data) {
-      var m = data.manual || {}, e = data.electrodes || {};
-      document.getElementById("r-status").textContent = "published readings sheet";
-      document.getElementById("r-time").textContent = data.timestamp_str || "–";
-      document.getElementById("r-temp").innerHTML = fmt(data.temperature_c) + " &deg;C";
-      document.getElementById("r-ph").innerHTML = fmt(m.ph);
-      document.getElementById("r-orp").innerHTML = fmt(m.orp_mv, 1) + " mV";
-      document.getElementById("r-do").innerHTML = fmt(m.do_mg_l) + " mg/L";
-      var parts = VOICES.map(function (v) {
-        var val = e[v.key];
-        return v.key + "=" + (val === null || val === undefined ? "&ndash;" : fmt(val));
-      });
-      document.getElementById("r-elec").innerHTML = parts.join("&nbsp;&nbsp;");
     }
 
     function poll() {
       fetchLatest().then(function (data) {
-        if (data) applyReadings(data);
-        else document.getElementById("status").textContent =
-          "playing (no data yet — waiting for the pi to publish)";
+        if (data) {
+          latestData = data;
+          setTargetsFromElectrodes(data.electrodes);
+          P.temp = data.temp; P.ph = data.ph; P.orp = data.orp; P.do = data.do;
+          setStatus("playing");
+        } else {
+          setStatus("playing (no data yet — waiting for the pi to publish)");
+        }
       });
     }
 
+    // demo: smooth, slowly-evolving synthetic readings so the page is alive
+    // before a real readings Sheet is configured.
+    function demoElectrodes(tSec) {
+      var elec = {};
+      VOICES.forEach(function (v, i) {
+        var w1 = 0.10 + 0.045 * i, w2 = 0.06 + 0.025 * ((i * 3) % 5);
+        var s = 0.5 + 0.34 * Math.sin(tSec * w1 + i * 1.7)
+                    + 0.16 * Math.sin(tSec * w2 + i * 0.9);
+        var lvl = clamp(s, 0, 1);
+        elec[v.key] = ELEC_MIN + lvl * (ELEC_MAX - ELEC_MIN);
+      });
+      return elec;
+    }
+    function demoParams(tSec) {
+      return {
+        temp: 28 + 3 * Math.sin(tSec * 0.05),                       // ~25–31 °C
+        ph: 10.7 + 0.6 * Math.sin(tSec * 0.04 + 1),                 // ~10.1–11.3
+        orp: -540 + 120 * Math.sin(tSec * 0.06 + 2),               // ~-660…-420 mV
+        do: Math.max(0, 2.0 + 1.8 * Math.sin(tSec * 0.07 + 3))      // ~0–3.8 mg/L
+      };
+    }
+
+    // ---------------------------------------------------------------
+    // canvas graphic
+    // ---------------------------------------------------------------
+    var cv = document.getElementById("vat-canvas");
+    var g2 = cv.getContext("2d");
+    var cssW = 360, cssH = 360, DPR = 1;
+    var center = { x: 180, y: 180 }, R = 140;
+    var elecXY = {};
+    var off = document.createElement("canvas");
+    var offctx = off.getContext("2d");
+    var cloudImg = null;
+    var gidx = null, gW = null, gThr = null, gN = 0;
+    var LV = new Float32Array(VOICES.length);
+    var lastCloud = 0;
+
+    function layout() {
+      var rect = cv.getBoundingClientRect();
+      cssW = Math.max(200, rect.width || 360);
+      cssH = cssW;  // square (aspect-ratio enforces this)
+      DPR = window.devicePixelRatio || 1;
+      cv.width = Math.round(cssW * DPR);
+      cv.height = Math.round(cssH * DPR);
+      g2.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+      center = { x: cssW / 2, y: cssH / 2 };
+      R = Math.min(cssW, cssH) * 0.38;   // leaves an outer margin for the filter arcs
+
+      elecXY = {};
+      VOICES.forEach(function (v) {
+        var d = DIR_VEC[v.dir];
+        elecXY[v.key] = {
+          x: center.x + d[0] * R * v.depth,
+          y: center.y + d[1] * R * v.depth
+        };
+      });
+      buildCloudGrid();
+    }
+
+    function drawRing(radius, dashed, color, width) {
+      g2.beginPath();
+      g2.arc(center.x, center.y, radius, 0, Math.PI * 2);
+      g2.strokeStyle = color;
+      g2.lineWidth = width;
+      if (dashed) g2.setLineDash([2, 4]); else g2.setLineDash([]);
+      g2.stroke();
+      g2.setLineDash([]);
+    }
+
+    function drawLabels() {
+      g2.fillStyle = C_INK;
+      g2.font = "bold 12px Inconsolata, monospace";
+      g2.textBaseline = "middle";
+      g2.textAlign = "center";
+      g2.fillText("N", center.x, center.y - R - 18);
+      g2.fillText("S", center.x, center.y + R + 18);
+      g2.textAlign = "left";
+      g2.fillText("E", center.x + R + 11, center.y);
+      g2.textAlign = "right";
+      g2.fillText("W", center.x - R - 11, center.y);
+      g2.textAlign = "left";
+    }
+
+    // one arc per filter, just outside the rim, in a diagonal sector (clear of
+    // the N/S/E/W labels). faint + dashed at intensity 0 -> bold + solid at 1.
+    var FX_LIST = ["temp", "ph", "orp", "do"];
+    var FX_DEG = { temp: 315, ph: 45, orp: 135, do: 225 };   // NE / SE / SW / NW
+    var FX_LABEL = { temp: "temp", ph: "pH", orp: "ORP", do: "DO" };
+    function drawFilterArcs() {
+      var rr = R + 9, half = 32 * Math.PI / 180;
+      g2.font = "11px Inconsolata, monospace";
+      g2.textAlign = "center"; g2.textBaseline = "middle";
+      FX_LIST.forEach(function (f) {
+        var inten = fx[f], c = FX_DEG[f] * Math.PI / 180;
+        g2.beginPath();
+        g2.arc(center.x, center.y, rr, c - half, c + half);
+        g2.strokeStyle = C_INDIGO;
+        g2.globalAlpha = 0.22 + 0.78 * inten;
+        g2.lineWidth = 1 + 1.6 * inten;
+        if (inten >= 0.97) g2.setLineDash([]);
+        else g2.setLineDash([2, 3 + (1 - inten) * 6]);
+        g2.stroke();
+        g2.setLineDash([]); g2.globalAlpha = 1;
+        var lr = rr + 12, lx = center.x + Math.cos(c) * lr, ly = center.y + Math.sin(c) * lr;
+        g2.fillStyle = inten > 0.02 ? C_INDIGO : C_FAINT;
+        g2.fillText(FX_LABEL[f], lx, ly);
+      });
+      g2.textAlign = "left";
+    }
+
+    // e-ink-style ACTIVITY CLOUD: probabilistic 1-bit stippling, the same idea
+    // as the dashboard's dithered surface map. Each electrode lays down a
+    // Gaussian density peaked at the node (a dense, near-solid core) that falls
+    // off sharply outward; per-pixel probability is capped just shy of solid so
+    // active electrodes burn a dark core that diffuses out. It's drawn to a
+    // low-res offscreen buffer (so it scales up chunky, like the panel) and
+    // re-stippled at a discrete interval — the living, refreshing-dither feel of
+    // e-ink. Pixel weights are precomputed once per layout; each refresh is just
+    // a multiply-add over the in-circle pixels, so it stays cheap.
+    // Two-part kernel per electrode: a tight CORE (small dense centre) plus a
+    // wider, weaker HALO (the mid-density zone that also blends between nodes).
+    var SIGMA_CORE = 0.13;       // tight kernel / R — size of the small dense core
+    var SIGMA_HALO = 0.40;       // wide kernel / R — reach of the mid-density halo + blend
+    var CORE_AMP = 1.0;          // core weight
+    var HALO_AMP = 0.6;          // halo weight (mid-density level relative to core)
+    var CLOUD_SCALE = 1.0;       // density multiplier (probability = SCALE * density^2)
+    var CLOUD_CAP = 0.72;        // max coverage (dense core, but never fully solid)
+    var CLOUD_FLOOR = 0.05;      // drop dots below this probability so the edges breathe
+    var CLOUD_UPDATE_MS = 33;    // recompute the stipple ~30 fps (smooth + perf-friendly)
+
+    function buildCloudGrid() {
+      off.width = cssW; off.height = cssH;
+      cloudImg = offctx.createImageData(cssW, cssH);
+      var sigC = R * SIGMA_CORE, twoSigC2 = 2 * sigC * sigC;
+      var sigH = R * SIGMA_HALO, twoSigH2 = 2 * sigH * sigH;
+      var rIn2 = (R - 1) * (R - 1);
+      // every pixel inside the vat (1 CSS px each -> contiguous, no gaps)
+      var pxs = [], pys = [], idxs = [];
+      for (var y = 0; y < cssH; y++) {
+        for (var x = 0; x < cssW; x++) {
+          var dx = x - center.x, dy = y - center.y;
+          if (dx * dx + dy * dy <= rIn2) {
+            pxs.push(x); pys.push(y); idxs.push((y * cssW + x) * 4);
+          }
+        }
+      }
+      gN = idxs.length;
+      gidx = new Int32Array(idxs);
+      // stable per-pixel threshold: as the (eased) density crosses it, a pixel
+      // turns on/off ONCE — no per-frame re-randomising, so the fade glides.
+      gThr = new Float32Array(gN);
+      for (var t = 0; t < gN; t++) gThr[t] = Math.random();
+      gW = VOICES.map(function (v) {
+        var e = elecXY[v.key], arr = new Float32Array(gN);
+        for (var i = 0; i < gN; i++) {
+          var ddx = pxs[i] - e.x, ddy = pys[i] - e.y, d2 = ddx * ddx + ddy * ddy;
+          arr[i] = CORE_AMP * Math.exp(-d2 / twoSigC2) +
+                   HALO_AMP * Math.exp(-d2 / twoSigH2);
+        }
+        return arr;
+      });
+    }
+
+    function refreshCloud() {
+      if (!cloudImg) return;
+      var data = cloudImg.data; data.fill(0);
+      var nV = VOICES.length;
+      for (var k = 0; k < nV; k++) LV[k] = vizLevels[VOICES[k].key];
+      for (var i = 0; i < gN; i++) {
+        var sumW = 0, sumWL = 0;
+        for (var k2 = 0; k2 < nV; k2++) {
+          var w = gW[k2][i]; sumW += w; sumWL += w * LV[k2];
+        }
+        var p = CLOUD_SCALE * sumWL * sumWL;   // density^2 -> dense core, dramatic spatial fade
+        if (p > CLOUD_CAP) p = CLOUD_CAP;
+        if (p > CLOUD_FLOOR && p > gThr[i]) {  // stable threshold -> smooth fade motion
+          var sR = 0, sG = 0, sB = 0;
+          for (var k3 = 0; k3 < nV; k3++) {
+            var w3 = gW[k3][i]; sR += w3 * WR[k3]; sG += w3 * WG[k3]; sB += w3 * WB[k3];
+          }
+          var inv = 1 / (sumW + 1e-6), di = gidx[i];
+          data[di] = sR * inv;        // geometry-weighted blend of wire colours
+          data[di + 1] = sG * inv;
+          data[di + 2] = sB * inv;
+          data[di + 3] = 255;
+        }
+      }
+      offctx.putImageData(cloudImg, 0, 0);
+    }
+
+    function drawDots() {
+      VOICES.forEach(function (v) {
+        var e = elecXY[v.key], lvl = vizLevels[v.key];
+        // size mirrors the cloud: driven purely by this electrode's level —
+        // the same value that drives its cloud's density and spread. no
+        // independent breathing, so node and cloud swell/shrink together.
+        var rad = 3.0 + lvl * 8.5;
+        g2.fillStyle = v.col;     // node marker in its own wire colour
+        g2.beginPath();
+        g2.arc(e.x, e.y, rad, 0, Math.PI * 2);
+        g2.fill();
+      });
+    }
+
+    function drawListener() {
+      g2.strokeStyle = C_FAINT;
+      g2.lineWidth = 1;
+      g2.beginPath();
+      g2.arc(center.x, center.y, 4, 0, Math.PI * 2);
+      g2.stroke();
+      g2.fillStyle = C_FAINT;
+      g2.beginPath();
+      g2.arc(center.x, center.y, 1.4, 0, Math.PI * 2);
+      g2.fill();
+    }
+
+    var startT = 0, lastReadout = 0;
+
+    function frame(ms) {
+      if (!startT) startT = ms;
+      var tSec = (ms - startT) / 1000;
+
+      // ---- decide targets ----
+      if (demoMode) {
+        var elec = demoElectrodes(tSec), dp = demoParams(tSec);
+        setTargetsFromElectrodes(elec);
+        P.temp = dp.temp; P.ph = dp.ph; P.orp = dp.orp; P.do = dp.do;
+        latestData = { timestamp_str: "demo", electrodes: elec,
+                       temp: dp.temp, ph: dp.ph, orp: dp.orp, do: dp.do };
+      } else if (!running) {
+        VOICES.forEach(function (v) { targetLevels[v.key] = IDLE_LEVEL; });
+      }
+
+      // ---- ease visible levels ----
+      VOICES.forEach(function (v) {
+        var d = targetLevels[v.key] - vizLevels[v.key];
+        vizLevels[v.key] += d * EASE;
+      });
+
+      // ---- audio (throttled) ----
+      if (running && ms - lastAudio >= AUDIO_UPDATE_MS) {
+        updateAudio();
+        lastAudio = ms;
+      }
+
+      // ---- draw ----
+      if (ms - lastCloud >= CLOUD_UPDATE_MS) { refreshCloud(); lastCloud = ms; }
+
+      g2.clearRect(0, 0, cssW, cssH);
+      g2.fillStyle = C_PAPER;
+      g2.fillRect(0, 0, cssW, cssH);
+
+      if (cloudImg) {
+        g2.imageSmoothingEnabled = false;
+        g2.drawImage(off, 0, 0, cssW, cssH);   // chunky upscale -> small contiguous dots
+      }
+
+      drawRing(R * 0.32, true, C_FAINT, 1);   // bottom
+      drawRing(R * 0.62, true, C_FAINT, 1);   // mid
+      drawRing(R, true, C_FAINT, 1);          // surface — same thin style as the others
+
+      drawDots();
+      drawListener();
+      drawLabels();
+      drawFilterArcs();
+
+      // ---- readout (throttled) ----
+      if (ms - lastReadout > 700) { updateReadout(); lastReadout = ms; }
+
+      requestAnimationFrame(frame);
+    }
+
+    // ---------------------------------------------------------------
+    // readout + status
+    // ---------------------------------------------------------------
+    function fmt(v, digits) {
+      if (v === null || v === undefined || isNaN(v)) return "&ndash;";
+      return Number(v).toFixed(digits === undefined ? 3 : digits);
+    }
+    function setStatus(text) {
+      document.getElementById("status").textContent = text;
+    }
+    function fmtVal(v, digits, unit) {
+      if (v === null || v === undefined || isNaN(v)) return "&ndash;";
+      return Number(v).toFixed(digits) + unit;
+    }
+    function setHTML(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+    function updateReadout() {
+      // the slider shows intensity; this is just the live reading value
+      var t = (!demoMode && latestData && latestData.timestamp_str) ? latestData.timestamp_str : "";
+      setHTML("source-line", t ? "reading " + t : "");
+      setHTML("fv-temp", fmtVal(P.temp, 1, " &deg;C"));
+      setHTML("fv-ph", fmtVal(P.ph, 2, ""));
+      setHTML("fv-orp", fmtVal(P.orp, 0, " mV"));
+      setHTML("fv-do", fmtVal(P.do, 2, " mg/L"));
+      var e = (latestData && latestData.electrodes) || {};
+      VOICES.forEach(function (v) {
+        var val = e[v.key];
+        setHTML("lv-" + v.key, (val === null || val === undefined) ? "&ndash;" : fmt(val) + "V");
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // transport
+    // ---------------------------------------------------------------
     function start() {
       if (running) return;
-      if (READINGS_SHEET_ID.indexOf("REPLACE_WITH") === 0) {
-        document.getElementById("status").textContent =
-          "not configured — readings sheet id missing";
-        return;
-      }
-      buildGraph(); ctx.resume(); poll();
-      pollTimer = setInterval(poll, POLL_MS); running = true;
+      buildGraph();
+      actx.resume();
+      master.gain.linearRampToValueAtTime(0.5, actx.currentTime + MASTER_RAMP);
+      running = true;
+      if (!demoMode) { poll(); pollTimer = setInterval(poll, POLL_MS); }
       document.getElementById("toggle").innerHTML = "&#9632; stop sound";
-      document.getElementById("status").textContent = "playing";
+      setStatus(demoMode
+        ? "demo playing (synthetic data)"
+        : "playing");
     }
 
     function stop() {
       if (!running) return;
-      clearInterval(pollTimer);
-      if (master) master.gain.linearRampToValueAtTime(0.0, ctx.currentTime + 0.5);
-      setTimeout(function () { if (ctx) ctx.close(); ctx = null; }, 700);
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      if (master) master.gain.linearRampToValueAtTime(0.0, actx.currentTime + 0.5);
+      setTimeout(function () { if (actx) { actx.close(); actx = null; } }, 700);
       running = false;
       document.getElementById("toggle").innerHTML = "&#9654; start sound";
-      document.getElementById("status").textContent = "stopped";
-      document.getElementById("r-status").textContent = "stopped";
+      setStatus(demoMode ? "demo paused" : "stopped");
     }
 
     document.getElementById("toggle").addEventListener("click", function () {
       if (running) stop(); else start();
     });
+
+    function setupFilters() {
+      var box = document.getElementById("filters");
+      if (!box) return;
+      var sliders = box.querySelectorAll("input.fx");
+      for (var i = 0; i < sliders.length; i++) {
+        (function (sl) {
+          sl.style.setProperty("--p", sl.value + "%");   // initial track fill
+          sl.addEventListener("input", function () {
+            fx[sl.getAttribute("data-f")] = (parseFloat(sl.value) || 0) / 100;
+            sl.style.setProperty("--p", sl.value + "%");  // fill grows with value
+            updateReadout();
+          });
+          // don't let a mouse wheel scrolling past the slider change its value;
+          // forward the scroll to the page instead
+          sl.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            window.scrollBy(0, e.deltaY);
+          }, { passive: false });
+        })(sliders[i]);
+      }
+    }
+
+    function buildLegend() {
+      var el = document.getElementById("vat-legend");
+      if (!el) return;
+      var order = ["sfc_n", "sfc_s", "sfc_e", "sfc_w", "mid_n", "mid_s", "btm_n", "btm_s"];
+      var byKey = {};
+      VOICES.forEach(function (v) { byKey[v.key] = v; });
+      el.innerHTML = order.map(function (k) {
+        var v = byKey[k];
+        return '<span class="leg"><i style="background:' + v.col + '"></i>' + k +
+               ' &middot; ' + v.wire +
+               '<span class="lv" id="lv-' + k + '">&ndash;</span></span>';
+      }).join("");
+    }
+
+    // ---------------------------------------------------------------
+    // boot
+    // ---------------------------------------------------------------
+    var resizeTimer = null;
+    window.addEventListener("resize", function () {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(layout, 150);
+    });
+
+    layout();
+    buildLegend();
+    setupFilters();
+    updateReadout();
+    setStatus(demoMode
+      ? "demo — press play to hear it (no live sheet configured yet)"
+      : "stopped");
+    requestAnimationFrame(frame);
   })();
   </script>
 </body>
