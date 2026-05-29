@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="vatcloud.js"></script>
   <style>
     /* top-down vat graphic — framed like the e-ink panel on the dashboard */
     .vat-stage { border: none; background: var(--paper); padding: 0; margin: 0; display: flex; justify-content: center; }
@@ -126,81 +127,35 @@
     // ---------------------------------------------------------------
     // config
     // ---------------------------------------------------------------
-    // The public "readings" Sheet the pi publishes to. Must be shared
-    // "anyone with link -> viewer". Replace with the actual Sheet ID.
-    // While it's still the placeholder, the page runs in DEMO mode so the
-    // graphic + sound can be previewed; it switches to live data
-    // automatically once a real id is filled in.
+    // The public "readings" Sheet the pi publishes to. Replace with the real
+    // id; while it's the placeholder the page runs in DEMO mode (synthetic),
+    // switching to live data automatically once a real id is filled in.
     var READINGS_SHEET_ID = "REPLACE_WITH_READINGS_SHEET_ID";
-    var GVIZ_URL = "https://docs.google.com/spreadsheets/d/" +
-      READINGS_SHEET_ID + "/gviz/tq?tqx=out:csv";
     var demoMode = READINGS_SHEET_ID.indexOf("REPLACE_WITH") === 0;
 
     var POLL_MS = 180000;       // live re-fetch interval (publish is ~30 min)
     var ROOT_HZ = 110;          // chord root (raised by the temperature filter)
-    var ELEC_MIN = -0.5, ELEC_MAX = 0.5;
-    var IDLE_LEVEL = 0.12;      // resting activity when stopped / no data
-    var EASE = 0.08;            // per-frame easing of visible levels
     var AUDIO_TC = 0.25;        // setTargetAtTime time constant (s)
-    var AUDIO_UPDATE_MS = 50;   // throttle audio param updates
+    var AUDIO_UPDATE_MS = 50;   // throttle audio param updates (ms)
     var MASTER_RAMP = 0.8;      // master fade in/out (s)
     var POS_RADIUS = 2.0;       // 3D panner spread
 
-    // Each electrode: harmonic ratio, 3D audio position [x,y,z], and its
-    // top-down placement on the canvas (compass direction + depth ring,
-    // 1.0 = surface/outer, 0.62 = mid, 0.32 = bottom/inner).
-    // `col` is each electrode's wire colour (docs/HARDWARE.md ADS channel map),
-    // nudged a touch darker/saturated where needed so it reads as 1px dither on
-    // the pale paper (pure yellow / pastels would wash out).
-    var VOICES = [
-      { key: "btm_n", ratio: 1, pos: [ 0, -1, -1], dir: "N", depth: 0.32, col: "#5995bb", wire: "light blue" },
-      { key: "btm_s", ratio: 2, pos: [ 0, -1,  1], dir: "S", depth: 0.32, col: "#2b4c92", wire: "blue" },
-      { key: "mid_n", ratio: 3, pos: [ 0,  0, -1], dir: "N", depth: 0.62, col: "#68a768", wire: "light green" },
-      { key: "mid_s", ratio: 4, pos: [ 0,  0,  1], dir: "S", depth: 0.62, col: "#327847", wire: "green" },
-      { key: "sfc_w", ratio: 5, pos: [-1,  1,  0], dir: "W", depth: 1.0,  col: "#9e2422", wire: "red" },
-      { key: "sfc_e", ratio: 6, pos: [ 1,  1,  0], dir: "E", depth: 1.0,  col: "#c8a200", wire: "yellow" },
-      { key: "sfc_n", ratio: 8, pos: [ 0,  1, -1], dir: "N", depth: 1.0,  col: "#d24d8c", wire: "pink" },
-      { key: "sfc_s", ratio: 9, pos: [ 0,  1,  1], dir: "S", depth: 1.0,  col: "#bf7127", wire: "orange" }
-    ];
-    var DIR_VEC = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+    // electrode layout, colours and helpers come from the shared vatcloud.js
+    var VOICES = VatCloud.VOICES;
+    var ELEC_MIN = VatCloud.ELEC_MIN, ELEC_MAX = VatCloud.ELEC_MAX;
+    var C_INDIGO = VatCloud.colors.indigo, C_FAINT = VatCloud.colors.faint;
+    var clamp = VatCloud.clamp;
 
-    // palette (mirrors style.css / the e-ink panel)
-    var C_PAPER = "#eef1f4", C_INK = "#111111", C_INDIGO = "#1c2638",
-        C_FAINT = "#8c95a0";
-
-    // per-electrode wire colours split into RGB channels for fast blending
-    var WR = new Float32Array(VOICES.length),
-        WG = new Float32Array(VOICES.length),
-        WB = new Float32Array(VOICES.length);
-    VOICES.forEach(function (v, i) {
-      var n = parseInt(v.col.slice(1), 16);
-      WR[i] = (n >> 16) & 255; WG[i] = (n >> 8) & 255; WB[i] = n & 255;
-    });
-
-    // ---------------------------------------------------------------
-    // shared level state (drives both audio and graphic)
-    // ---------------------------------------------------------------
-    var targetLevels = {}, vizLevels = {};
-    VOICES.forEach(function (v) {
-      targetLevels[v.key] = IDLE_LEVEL;
-      vizLevels[v.key] = IDLE_LEVEL;
-    });
     var latestData = null;
-
-    // optional environmental "filters" the listener blends in to shape the
-    // electrode chord. fx = intensity 0..1 (0 = off = plain 8-electrode version).
+    // environmental "filters" the listener blends in. fx = intensity 0..1.
     var fx = { temp: 0, ph: 0, orp: 0, do: 0 };
     var P = { temp: null, ph: null, orp: null, do: null };  // current param values
+    var diagram = null;          // the shared vat diagram (created at boot)
 
-    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
     function map(v, a, b, c, d) {
       if (v === null || v === undefined || isNaN(v)) return (c + d) / 2;
       var t = clamp((v - a) / (b - a), 0, 1);
       return c + t * (d - c);
-    }
-    function normElec(v) {
-      if (v === null || v === undefined || isNaN(v)) return null;
-      return clamp((v - ELEC_MIN) / (ELEC_MAX - ELEC_MIN), 0, 1);
     }
 
     // ---------------------------------------------------------------
@@ -275,7 +230,7 @@
       noise.connect(nf); nf.connect(noiseGain); noiseGain.connect(master); noise.start();
     }
 
-    function updateAudio() {
+    function updateAudio(viz) {
       if (!actx || !running) return;
       var now = actx.currentTime;
 
@@ -283,7 +238,7 @@
       var root = ROOT_HZ;
       if (P.temp != null) root += fx.temp * (map(P.temp, 20, 35, 90, 180) - ROOT_HZ);
       voices.forEach(function (voice) {
-        var v = vizLevels[voice.key];
+        var v = viz[voice.key];
         voice.osc.frequency.setTargetAtTime(root * voice.ratio, now, AUDIO_TC);
         voice.gain.gain.setTargetAtTime(0.04 + 0.16 * v, now, AUDIO_TC);
         voice.osc.detune.setTargetAtTime((v - 0.5) * 60, now, AUDIO_TC);
@@ -302,74 +257,13 @@
     }
 
     // ---------------------------------------------------------------
-    // data (electrodes only)
+    // data (CSV fetch/parse lives in vatcloud.js)
     // ---------------------------------------------------------------
-    function parseCSVLine(line) {
-      var out = [], cur = "", inQ = false;
-      for (var i = 0; i < line.length; i++) {
-        var c = line[i];
-        if (inQ) {
-          if (c === '"') {
-            if (line[i + 1] === '"') { cur += '"'; i++; } else inQ = false;
-          } else cur += c;
-        } else {
-          if (c === '"') inQ = true;
-          else if (c === ',') { out.push(cur); cur = ""; }
-          else cur += c;
-        }
-      }
-      out.push(cur);
-      return out;
-    }
-
-    function rowToReading(header, row) {
-      function col(name) {
-        var idx = header.indexOf(name);
-        if (idx < 0 || idx >= row.length) return null;
-        var v = parseFloat(row[idx]);
-        return isNaN(v) ? null : v;
-      }
-      var tsIdx = header.indexOf("timestamp");
-      var elec = {};
-      VOICES.forEach(function (v) { elec[v.key] = col(v.key); });
-      return {
-        timestamp_str: (tsIdx >= 0 && tsIdx < row.length) ? row[tsIdx] : "",
-        electrodes: elec,
-        temp: col("temperature_c"),
-        ph: col("ph"),
-        orp: col("orp_mv"),
-        do: col("do_mg_l")
-      };
-    }
-
-    function fetchLatest() {
-      return fetch(GVIZ_URL, { cache: "no-store" })
-        .then(function (r) { return r.ok ? r.text() : null; })
-        .then(function (csv) {
-          if (!csv) return null;
-          var lines = csv.split(/\r?\n/).filter(function (l) { return l !== ""; });
-          if (lines.length < 2) return null;
-          var header = parseCSVLine(lines[0]).map(function (h) {
-            return h.trim().toLowerCase();
-          });
-          var last = parseCSVLine(lines[lines.length - 1]);
-          return rowToReading(header, last);
-        })
-        .catch(function () { return null; });
-    }
-
-    function setTargetsFromElectrodes(elec) {
-      VOICES.forEach(function (v) {
-        var n = normElec(elec ? elec[v.key] : null);
-        targetLevels[v.key] = (n === null) ? IDLE_LEVEL * 0.4 : n;
-      });
-    }
-
     function poll() {
-      fetchLatest().then(function (data) {
+      VatCloud.fetchReadings(READINGS_SHEET_ID).then(function (data) {
         if (data) {
           latestData = data;
-          setTargetsFromElectrodes(data.electrodes);
+          diagram.setReadings(data.electrodes);
           P.temp = data.temp; P.ph = data.ph; P.orp = data.orp; P.do = data.do;
           setStatus("playing");
         } else {
@@ -401,77 +295,17 @@
     }
 
     // ---------------------------------------------------------------
-    // canvas graphic
+    // diagram hooks (the renderer lives in vatcloud.js)
     // ---------------------------------------------------------------
-    var cv = document.getElementById("vat-canvas");
-    var g2 = cv.getContext("2d");
-    var cssW = 360, cssH = 360, DPR = 1;
-    var center = { x: 180, y: 180 }, R = 140;
-    var elecXY = {};
-    var off = document.createElement("canvas");
-    var offctx = off.getContext("2d");
-    var cloudImg = null;
-    var gidx = null, gW = null, gThr = null, gN = 0;
-    var LV = new Float32Array(VOICES.length);
-    var lastCloud = 0;
-
-    function layout() {
-      var rect = cv.getBoundingClientRect();
-      cssW = Math.max(200, rect.width || 360);
-      cssH = cssW;  // square (aspect-ratio enforces this)
-      DPR = window.devicePixelRatio || 1;
-      cv.width = Math.round(cssW * DPR);
-      cv.height = Math.round(cssH * DPR);
-      g2.setTransform(DPR, 0, 0, DPR, 0, 0);
-
-      center = { x: cssW / 2, y: cssH / 2 };
-      R = Math.min(cssW, cssH) * 0.38;   // leaves an outer margin for the filter arcs
-
-      elecXY = {};
-      VOICES.forEach(function (v) {
-        var d = DIR_VEC[v.dir];
-        elecXY[v.key] = {
-          x: center.x + d[0] * R * v.depth,
-          y: center.y + d[1] * R * v.depth
-        };
-      });
-      buildCloudGrid();
-    }
-
-    function drawRing(radius, dashed, color, width) {
-      g2.beginPath();
-      g2.arc(center.x, center.y, radius, 0, Math.PI * 2);
-      g2.strokeStyle = color;
-      g2.lineWidth = width;
-      if (dashed) g2.setLineDash([2, 4]); else g2.setLineDash([]);
-      g2.stroke();
-      g2.setLineDash([]);
-    }
-
-    function drawLabels() {
-      g2.fillStyle = C_INK;
-      g2.font = "bold 12px Inconsolata, monospace";
-      g2.textBaseline = "middle";
-      g2.textAlign = "center";
-      g2.fillText("N", center.x, center.y - R - 18);
-      g2.fillText("S", center.x, center.y + R + 18);
-      g2.textAlign = "left";
-      g2.fillText("E", center.x + R + 11, center.y);
-      g2.textAlign = "right";
-      g2.fillText("W", center.x - R - 11, center.y);
-      g2.textAlign = "left";
-    }
-
-    // one arc per filter, just outside the rim, in a diagonal sector (clear of
-    // the N/S/E/W labels). faint + dashed at intensity 0 -> bold + solid at 1.
-    var FX_LIST = ["temp", "ph", "orp", "do"];
+    // overlay: one arc per filter, just outside the rim, in a diagonal sector
+    // (clear of N/S/E/W). faint + dashed at intensity 0 -> bold + solid at 1.
     var FX_DEG = { temp: 315, ph: 45, orp: 135, do: 225 };   // NE / SE / SW / NW
     var FX_LABEL = { temp: "temp", ph: "pH", orp: "ORP", do: "DO" };
-    function drawFilterArcs() {
-      var rr = R + 9, half = 32 * Math.PI / 180;
+    function drawFilterArcs(g2, info) {
+      var center = info.center, R = info.R, rr = R + 9, half = 32 * Math.PI / 180;
       g2.font = "11px Inconsolata, monospace";
       g2.textAlign = "center"; g2.textBaseline = "middle";
-      FX_LIST.forEach(function (f) {
+      ["temp", "ph", "orp", "do"].forEach(function (f) {
         var inten = fx[f], c = FX_DEG[f] * Math.PI / 180;
         g2.beginPath();
         g2.arc(center.x, center.y, rr, c - half, c + half);
@@ -489,166 +323,20 @@
       g2.textAlign = "left";
     }
 
-    // e-ink-style ACTIVITY CLOUD: probabilistic 1-bit stippling, the same idea
-    // as the dashboard's dithered surface map. Each electrode lays down a
-    // Gaussian density peaked at the node (a dense, near-solid core) that falls
-    // off sharply outward; per-pixel probability is capped just shy of solid so
-    // active electrodes burn a dark core that diffuses out. It's drawn to a
-    // low-res offscreen buffer (so it scales up chunky, like the panel) and
-    // re-stippled at a discrete interval — the living, refreshing-dither feel of
-    // e-ink. Pixel weights are precomputed once per layout; each refresh is just
-    // a multiply-add over the in-circle pixels, so it stays cheap.
-    // Two-part kernel per electrode: a tight CORE (small dense centre) plus a
-    // wider, weaker HALO (the mid-density zone that also blends between nodes).
-    var SIGMA_CORE = 0.13;       // tight kernel / R — size of the small dense core
-    var SIGMA_HALO = 0.40;       // wide kernel / R — reach of the mid-density halo + blend
-    var CORE_AMP = 1.0;          // core weight
-    var HALO_AMP = 0.6;          // halo weight (mid-density level relative to core)
-    var CLOUD_SCALE = 1.0;       // density multiplier (probability = SCALE * density^2)
-    var CLOUD_CAP = 0.72;        // max coverage (dense core, but never fully solid)
-    var CLOUD_FLOOR = 0.05;      // drop dots below this probability so the edges breathe
-    var CLOUD_UPDATE_MS = 33;    // recompute the stipple ~30 fps (smooth + perf-friendly)
-
-    function buildCloudGrid() {
-      off.width = cssW; off.height = cssH;
-      cloudImg = offctx.createImageData(cssW, cssH);
-      var sigC = R * SIGMA_CORE, twoSigC2 = 2 * sigC * sigC;
-      var sigH = R * SIGMA_HALO, twoSigH2 = 2 * sigH * sigH;
-      var rIn2 = (R - 1) * (R - 1);
-      // every pixel inside the vat (1 CSS px each -> contiguous, no gaps)
-      var pxs = [], pys = [], idxs = [];
-      for (var y = 0; y < cssH; y++) {
-        for (var x = 0; x < cssW; x++) {
-          var dx = x - center.x, dy = y - center.y;
-          if (dx * dx + dy * dy <= rIn2) {
-            pxs.push(x); pys.push(y); idxs.push((y * cssW + x) * 4);
-          }
-        }
-      }
-      gN = idxs.length;
-      gidx = new Int32Array(idxs);
-      // stable per-pixel threshold: as the (eased) density crosses it, a pixel
-      // turns on/off ONCE — no per-frame re-randomising, so the fade glides.
-      gThr = new Float32Array(gN);
-      for (var t = 0; t < gN; t++) gThr[t] = Math.random();
-      gW = VOICES.map(function (v) {
-        var e = elecXY[v.key], arr = new Float32Array(gN);
-        for (var i = 0; i < gN; i++) {
-          var ddx = pxs[i] - e.x, ddy = pys[i] - e.y, d2 = ddx * ddx + ddy * ddy;
-          arr[i] = CORE_AMP * Math.exp(-d2 / twoSigC2) +
-                   HALO_AMP * Math.exp(-d2 / twoSigH2);
-        }
-        return arr;
-      });
-    }
-
-    function refreshCloud() {
-      if (!cloudImg) return;
-      var data = cloudImg.data; data.fill(0);
-      var nV = VOICES.length;
-      for (var k = 0; k < nV; k++) LV[k] = vizLevels[VOICES[k].key];
-      for (var i = 0; i < gN; i++) {
-        var sumW = 0, sumWL = 0;
-        for (var k2 = 0; k2 < nV; k2++) {
-          var w = gW[k2][i]; sumW += w; sumWL += w * LV[k2];
-        }
-        var p = CLOUD_SCALE * sumWL * sumWL;   // density^2 -> dense core, dramatic spatial fade
-        if (p > CLOUD_CAP) p = CLOUD_CAP;
-        if (p > CLOUD_FLOOR && p > gThr[i]) {  // stable threshold -> smooth fade motion
-          var sR = 0, sG = 0, sB = 0;
-          for (var k3 = 0; k3 < nV; k3++) {
-            var w3 = gW[k3][i]; sR += w3 * WR[k3]; sG += w3 * WG[k3]; sB += w3 * WB[k3];
-          }
-          var inv = 1 / (sumW + 1e-6), di = gidx[i];
-          data[di] = sR * inv;        // geometry-weighted blend of wire colours
-          data[di + 1] = sG * inv;
-          data[di + 2] = sB * inv;
-          data[di + 3] = 255;
-        }
-      }
-      offctx.putImageData(cloudImg, 0, 0);
-    }
-
-    function drawDots() {
-      VOICES.forEach(function (v) {
-        var e = elecXY[v.key], lvl = vizLevels[v.key];
-        // size mirrors the cloud: driven purely by this electrode's level —
-        // the same value that drives its cloud's density and spread. no
-        // independent breathing, so node and cloud swell/shrink together.
-        var rad = 3.0 + lvl * 8.5;
-        g2.fillStyle = v.col;     // node marker in its own wire colour
-        g2.beginPath();
-        g2.arc(e.x, e.y, rad, 0, Math.PI * 2);
-        g2.fill();
-      });
-    }
-
-    function drawListener() {
-      g2.strokeStyle = C_FAINT;
-      g2.lineWidth = 1;
-      g2.beginPath();
-      g2.arc(center.x, center.y, 4, 0, Math.PI * 2);
-      g2.stroke();
-      g2.fillStyle = C_FAINT;
-      g2.beginPath();
-      g2.arc(center.x, center.y, 1.4, 0, Math.PI * 2);
-      g2.fill();
-    }
-
-    var startT = 0, lastReadout = 0;
-
-    function frame(ms) {
-      if (!startT) startT = ms;
-      var tSec = (ms - startT) / 1000;
-
-      // ---- decide targets ----
+    // per-frame hook: set diagram targets (demo / idle) and drive audio + readouts
+    var lastAudioSec = -1, lastReadoutSec = -1;
+    function onFrame(viz, tSec) {
       if (demoMode) {
         var elec = demoElectrodes(tSec), dp = demoParams(tSec);
-        setTargetsFromElectrodes(elec);
+        diagram.setReadings(elec);
         P.temp = dp.temp; P.ph = dp.ph; P.orp = dp.orp; P.do = dp.do;
         latestData = { timestamp_str: "demo", electrodes: elec,
                        temp: dp.temp, ph: dp.ph, orp: dp.orp, do: dp.do };
       } else if (!running) {
-        VOICES.forEach(function (v) { targetLevels[v.key] = IDLE_LEVEL; });
+        diagram.setIdle();
       }
-
-      // ---- ease visible levels ----
-      VOICES.forEach(function (v) {
-        var d = targetLevels[v.key] - vizLevels[v.key];
-        vizLevels[v.key] += d * EASE;
-      });
-
-      // ---- audio (throttled) ----
-      if (running && ms - lastAudio >= AUDIO_UPDATE_MS) {
-        updateAudio();
-        lastAudio = ms;
-      }
-
-      // ---- draw ----
-      if (ms - lastCloud >= CLOUD_UPDATE_MS) { refreshCloud(); lastCloud = ms; }
-
-      g2.clearRect(0, 0, cssW, cssH);
-      g2.fillStyle = C_PAPER;
-      g2.fillRect(0, 0, cssW, cssH);
-
-      if (cloudImg) {
-        g2.imageSmoothingEnabled = false;
-        g2.drawImage(off, 0, 0, cssW, cssH);   // chunky upscale -> small contiguous dots
-      }
-
-      drawRing(R * 0.32, true, C_FAINT, 1);   // bottom
-      drawRing(R * 0.62, true, C_FAINT, 1);   // mid
-      drawRing(R, true, C_FAINT, 1);          // surface — same thin style as the others
-
-      drawDots();
-      drawListener();
-      drawLabels();
-      drawFilterArcs();
-
-      // ---- readout (throttled) ----
-      if (ms - lastReadout > 700) { updateReadout(); lastReadout = ms; }
-
-      requestAnimationFrame(frame);
+      if (running && tSec - lastAudioSec >= 0.05) { updateAudio(viz); lastAudioSec = tSec; }
+      if (tSec - lastReadoutSec >= 0.7) { updateReadout(); lastReadoutSec = tSec; }
     }
 
     // ---------------------------------------------------------------
@@ -748,22 +436,20 @@
     }
 
     // ---------------------------------------------------------------
-    // boot
+    // boot — the shared renderer owns the canvas loop + resize; we feed it
+    // targets and drive audio via onFrame, and draw the filter arcs via overlay
     // ---------------------------------------------------------------
-    var resizeTimer = null;
-    window.addEventListener("resize", function () {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(layout, 150);
+    diagram = VatCloud.create(document.getElementById("vat-canvas"), {
+      radiusFraction: 0.38,
+      onFrame: onFrame,
+      overlay: drawFilterArcs
     });
-
-    layout();
     buildLegend();
     setupFilters();
     updateReadout();
     setStatus(demoMode
       ? "demo — press play to hear it (no live sheet configured yet)"
       : "stopped");
-    requestAnimationFrame(frame);
   })();
   </script>
 </body>

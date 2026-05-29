@@ -8,6 +8,26 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="vatcloud.js"></script>
+  <style>
+    /* live dashboard: animated vat diagram + readouts (replaces the e-ink PNG) */
+    .dash-panel { display: flex; flex-wrap: wrap; gap: 1rem 1.8rem; align-items: flex-start; margin: 1rem 0; }
+    .dash-graphic { flex: 0 1 340px; max-width: 100%; min-width: 240px; }
+    #dash-canvas { width: 100%; max-width: 400px; aspect-ratio: 1 / 1; display: block; }
+    .dash-readouts { flex: 1 1 280px; min-width: 250px; }
+    .dash-day { font-size: 1.15rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+    .dash-temp { font-size: 1.55rem; font-weight: 400; margin: 0.2rem 0 0.7rem; }
+    .dash-vals { display: grid; grid-template-columns: max-content 1fr; column-gap: 1rem; row-gap: 0.32rem; margin: 0; font-size: 1rem; }
+    .dash-vals dt { color: var(--ink-soft); }
+    .dash-vals dd { margin: 0; font-variant-numeric: tabular-nums; }
+    .orp-bar { position: relative; height: 6px; background: var(--paper-tint); border: 1px solid var(--rule); margin: 0.8rem 0 0.3rem; }
+    .orp-bar .tick { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--ink); }
+    .orp-bar .ptr { position: absolute; top: -4px; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--indigo); margin-left: -4px; }
+    .dash-updated { font-size: 0.78rem; margin-top: 0.5rem; }
+    .dash-days { margin: 0.6rem 0 0; font-size: 0.85rem; }
+    .dash-days a { margin-right: 0.55rem; white-space: nowrap; }
+    .dash-days a.active { font-weight: 700; color: var(--ink); }
+  </style>
 </head>
 <body>
   <header>
@@ -26,25 +46,145 @@
   <main id="top">
 
     <h1>sukumo vat monitor</h1>
-    <p>a fermenting indigo vat at bioclub tokyo, instrumented with a raspberry pi. an experiment in multispecies attention: temperature, surface activity, ph, orp, dissolved oxygen, all logged continuously. the pi runs offline at the lab and syncs to drive periodically when carried within reach of a network.</p>
+    <p>a fermenting indigo vat at bioclub tokyo, instrumented with a raspberry pi. an experiment in multispecies attention: temperature, electrode voltages, ph, orp, dissolved oxygen, all logged continuously. the pi runs offline at the lab and syncs to drive periodically when carried within reach of a network.</p>
 
     <!-- ============================================================ -->
     <!-- DASHBOARD                                                     -->
     <!-- ============================================================ -->
     <h2 id="dashboard">// dashboard</h2>
 
-    <div class="dashboard-image">
+    <!-- PNG fallback: the pi-rendered e-ink dashboard (real data), shown until
+         the live readings Sheet is configured -->
+    <div class="dashboard-image" id="dashboard-png">
       <img id="dashboard-img" alt="Live sukumo dashboard"
            onerror="this.style.display='none';document.getElementById('dashboard-fallback').style.display='block'">
       <p id="dashboard-fallback" class="muted" style="display:none">dashboard image not yet available. check back when the pi has run a sync cycle.</p>
     </div>
+
+    <!-- live dashboard: animated vat diagram + readouts. hidden until the
+         published readings Sheet returns data, then it replaces the PNG -->
+    <div id="dash-live" style="display:none">
+      <div class="dash-panel">
+        <div class="dash-graphic"><canvas id="dash-canvas"></canvas></div>
+        <div class="dash-readouts">
+          <div class="dash-day">sukumo &middot; day <span id="d-day">&ndash;</span></div>
+          <div class="dash-temp"><span id="d-temp">&ndash;</span></div>
+          <dl class="dash-vals">
+            <dt>surface</dt><dd>N <span id="d-sfc_n">&ndash;</span> &middot; S <span id="d-sfc_s">&ndash;</span> &middot; E <span id="d-sfc_e">&ndash;</span> &middot; W <span id="d-sfc_w">&ndash;</span></dd>
+            <dt>mid</dt><dd>N <span id="d-mid_n">&ndash;</span> &middot; S <span id="d-mid_s">&ndash;</span></dd>
+            <dt>bottom</dt><dd>N <span id="d-btm_n">&ndash;</span> &middot; S <span id="d-btm_s">&ndash;</span></dd>
+            <dt>pH</dt><dd id="d-ph">&ndash;</dd>
+            <dt>ORP</dt><dd id="d-orp">&ndash;</dd>
+            <dt>DO</dt><dd id="d-do">&ndash;</dd>
+          </dl>
+          <div class="orp-bar"><div class="tick" id="orp-tick"></div><div class="ptr" id="orp-ptr"></div></div>
+          <div class="dash-updated muted" id="d-updated"></div>
+        </div>
+      </div>
+      <div id="dash-days" class="dash-days" style="display:none"></div>
+    </div>
+
     <script>
-      // Cache-buster: appends a fresh timestamp so the browser fetches the
-      // current Drive image on each page load, bypassing its local cache.
-      // (Google's CDN sets long Cache-Control on these URLs.)
       (function () {
+        var SHEET_ID = "REPLACE_WITH_READINGS_SHEET_ID";
+        var START_DATE = "2026-05-12";   // vat day 1
+
+        // PNG cache-buster (the pi-rendered fallback)
         var img = document.getElementById('dashboard-img');
         img.src = 'https://lh3.googleusercontent.com/d/1QDxVUK7KxUpJXeWliJ8_wnElZSEiSVxk=w1000?t=' + Date.now();
+
+        var png = document.getElementById('dashboard-png');
+        var live = document.getElementById('dash-live');
+        var diagram = null, pollTimer = null;
+
+        function vatDay(dateStr) {
+          var ms = new Date((dateStr || '') + 'T00:00:00').getTime() - new Date(START_DATE + 'T00:00:00').getTime();
+          return isNaN(ms) ? '&ndash;' : Math.max(1, Math.round(ms / 86400000) + 1);
+        }
+        function todayVatDay() {
+          return Math.max(1, Math.floor((Date.now() - new Date(START_DATE + 'T00:00:00').getTime()) / 86400000) + 1);
+        }
+        function fmt(v, d, u) { return (v == null || isNaN(v)) ? '&ndash;' : Number(v).toFixed(d) + (u || ''); }
+        function set(id, html) { var e = document.getElementById(id); if (e) e.innerHTML = html; }
+
+        function orpBar(orp) {
+          var lo = -700, hi = 0;
+          document.getElementById('orp-tick').style.left = (((-600) - lo) / (hi - lo) * 100) + '%';
+          var ptr = document.getElementById('orp-ptr');
+          var f = Math.max(0, Math.min(1, ((orp == null ? lo : orp) - lo) / (hi - lo)));
+          ptr.style.left = (f * 100) + '%';
+          ptr.style.borderBottomColor = (orp != null && orp > -550) ? '#c01e1e' : '#1c2638';
+        }
+
+        function showLive(reading) {
+          png.style.display = 'none';
+          live.style.display = 'block';
+          if (!diagram) diagram = VatCloud.create(document.getElementById('dash-canvas'), { radiusFraction: 0.40, showListener: false });
+          diagram.setReadings(reading.electrodes);
+          set('d-temp', fmt(reading.temp, 1, ' &deg;C'));
+          VatCloud.VOICES.forEach(function (v) { set('d-' + v.key, fmt(reading.electrodes[v.key], 3, 'V')); });
+          set('d-ph', fmt(reading.ph, 2, ''));
+          set('d-orp', fmt(reading.orp, 0, ' mV'));
+          set('d-do', fmt(reading.do, 2, ' mg/L'));
+          orpBar(reading.orp);
+        }
+
+        // live: latest reading from the published Sheet
+        function tryLive() {
+          VatCloud.fetchReadings(SHEET_ID).then(function (reading) {
+            if (!reading) return;  // keep PNG
+            showLive(reading);
+            set('d-day', todayVatDay());
+            set('d-updated', reading.timestamp_str ? ('updated ' + reading.timestamp_str) : '');
+            if (!pollTimer) pollTimer = setInterval(tryLive, 180000);
+          });
+        }
+
+        // demo/preview: replay recorded days from the bundled sample; pick a day below
+        function startReplay() {
+          fetch('sample-readings.json', { cache: 'no-store' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+              if (!data || !data.days || !data.days.length) return;  // keep PNG if missing
+              var idx = {}; data.cols.forEach(function (c, i) { idx[c] = i; });
+              var days = data.days, dayI = days.length - 1, rowI = 0, timer = null;
+              var daysEl = document.getElementById('dash-days');
+
+              function toReading(row) {
+                var elec = {};
+                VatCloud.VOICES.forEach(function (v) { elec[v.key] = row[idx[v.key]]; });
+                return { electrodes: elec, temp: row[idx.temperature_c], ph: row[idx.ph],
+                         orp: row[idx.orp_mv], do: row[idx.do_mg_l] };
+              }
+              function step() {
+                var day = days[dayI], row = day.rows[rowI];
+                showLive(toReading(row));
+                set('d-day', vatDay(day.date));
+                set('d-updated', 'replaying ' + day.date + ' &middot; ' + row[idx.t]);
+                rowI = (rowI + 1) % day.rows.length;
+              }
+              function renderLinks() {
+                daysEl.style.display = 'block';
+                daysEl.innerHTML = '<span class="muted">replaying recorded days &mdash; pick one:</span> ' +
+                  days.map(function (d, i) {
+                    return '<a href="#" data-i="' + i + '" class="day-link' + (i === dayI ? ' active' : '') + '">' +
+                           d.date.slice(5).replace('-', '/') + '</a>';
+                  }).join('');
+                Array.prototype.forEach.call(daysEl.querySelectorAll('.day-link'), function (a) {
+                  a.addEventListener('click', function (e) {
+                    e.preventDefault(); dayI = +a.getAttribute('data-i'); play();
+                  });
+                });
+              }
+              function play() { rowI = 0; if (timer) clearInterval(timer); step(); timer = setInterval(step, 550); renderLinks(); }
+              play();
+            });
+        }
+
+        var configured = SHEET_ID.indexOf('REPLACE_WITH') !== 0;
+        if (configured) tryLive();
+        else if (/[?&]demo\b/.test(location.search)) startReplay();
+        // else: not configured, no demo -> the e-ink PNG stays
       })();
     </script>
 
@@ -69,22 +209,16 @@
     </section>
 
     <section class="explainer">
-      <h2>// surface activity</h2>
-      <p>top-down view of the vat surface. the four markers are the surface electrodes (N, S, E, W). the speckled cloud summarises how the four readings differ from each other and from an hour ago. a calm vat reads as an empty circle; a wall reading differently appears as a denser cluster near that wall.</p>
-      <p>two signals drive the cloud:</p>
-      <ol>
-        <li>
-          <strong>per-electrode deviation.</strong> each electrode contributes a Gaussian kernel at its own position. the bigger its gap from the average of the four, the denser the kernel. opposite walls both deviating produce two distinct kernels.
-          <pre>density(p) +=  4.5 &middot; |v_k &minus; mean(v)| &middot; exp(&minus; |p &minus; pos_k|&sup2; / 2&sigma;&sub1;&sup2;)
-where &sigma;&sub1; &asymp; 0.45 &middot; r_inner</pre>
-        </li>
-        <li>
-          <strong>common-mode drift.</strong> when all four shift together, the average moves from its hour-ago value. that change adds a broad kernel at the center, for activity spread across the whole vat rather than at one wall.
-          <pre>density(p) +=  3.5 &middot; |mean(v) &minus; mean_baseline| &middot; exp(&minus; |p &minus; center|&sup2; / 2&sigma;&sub2;&sup2;)
-where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
-        </li>
-      </ol>
-      <p>at each pixel the two are summed and used as the probability of placing a dot, capped at 55%. seeded from the current readings.</p>
+      <h2>// the diagram</h2>
+      <p>top-down view of the vat. each of the 8 electrodes is a dot in its wire colour, set where it sits in the vat &mdash; surface electrodes on the outer ring, mid and bottom nearer the centre; N/S/E/W match the vat walls.</p>
+      <p>each electrode lays down a two-part gaussian kernel (a tight core plus a wider halo); the density at a pixel is the level-weighted sum across all eight:</p>
+      <pre>w_k(p) = exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_c&sup2;) + 0.6 &middot; exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_h&sup2;)
+where &sigma;_c &asymp; 0.13 &middot; R  and  &sigma;_h &asymp; 0.40 &middot; R
+D(p)   = &sum;_k  L_k &middot; w_k(p)      (L_k = electrode k's level, 0&ndash;1)</pre>
+      <p>that density is squared and capped to set each pixel's ink probability, then dithered against a fixed per-pixel threshold &tau;(p). squaring makes an active electrode burn a dense, near-solid core that fades off sharply; the fixed threshold means the cloud glides as levels change instead of re-randomising:</p>
+      <pre>P(p) = min(0.72, D(p)&sup2;)
+ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
+      <p>each inked pixel takes the geometry-weighted blend of the nearby wire colours (&sum;_k w_k &middot; c_k / &sum;_k w_k), so neighbouring clouds mix where they overlap. the 1-bit speckle echoes the e-ink panel it replaces.</p>
 
       <h2>// orp target</h2>
       <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. indigo dyes only in its reduced, water-soluble (leuco) form and reverts to insoluble blue once reoxidised (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0013468602000282" target="_blank">Roessler et al., 2002</a>). in sukumo fermentation, reduction begins as ORP falls to about &minus;500 mV, and the indigo-reducing bacteria operate below &minus;600 mV (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>); the bar marks &minus;600 mV as its reference and the pointer turns red above &minus;550 mV.</p>
@@ -179,7 +313,7 @@ where &sigma;&sub2; &asymp; 0.95 &middot; r_inner</pre>
     <h3>notes</h3>
     <ul>
       <li>past entries can't be edited via the form. submit a new entry with corrected values; mention the correction in notes.</li>
-      <li>the dashboard image and the pi's local diary update only when the pi next syncs (it spends most of its time offline at the lab). the sheet itself is always live.</li>
+      <li>the dashboard and the pi's local diary only refresh when the pi next syncs (it spends most of its time offline at the lab). the responses sheet itself is always live.</li>
     </ul>
 
     <!-- ============================================================ -->
