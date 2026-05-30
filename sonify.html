@@ -84,11 +84,26 @@
     .vat-days a { margin-right: 0.55rem; white-space: nowrap; color: var(--ink-soft); }
     .vat-days a.active { font-weight: 700; color: var(--ink); }
     .vat-days a:hover { color: var(--indigo); }
-    /* replay-rate slider — only relevant for archive replay; hidden until the
-       archive has loaded. compresses or stretches a full day's audio loop. */
+    /* replay-rate slider — matches the dotted-track + indigo-thumb look of the
+       filter sliders above. only relevant for archive replay. */
     .replay-rate-ctl { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--ink-faint);
                        display: inline-flex; align-items: center; gap: 0.5rem; }
-    .replay-rate-ctl input[type="range"] { width: 9em; height: 16px; }
+    .replay-rate-ctl input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 9em; height: 16px; cursor: pointer;
+      border: none; outline: none;
+      background: repeating-linear-gradient(to right, var(--ink-faint) 0 2px, transparent 2px 6px)
+                  no-repeat left center / 100% 2px;
+    }
+    .replay-rate-ctl input[type="range"]::-webkit-slider-runnable-track { background: transparent; height: 2px; border: none; }
+    .replay-rate-ctl input[type="range"]::-moz-range-track { background: transparent; height: 2px; border: none; }
+    .replay-rate-ctl input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 8px; height: 14px; margin-top: -6px;
+      background: var(--indigo); border: none; cursor: pointer;
+    }
+    .replay-rate-ctl input[type="range"]::-moz-range-thumb {
+      width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
+    }
+    .replay-rate-ctl input[type="range"]:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
   </style>
 </head>
 <body>
@@ -120,7 +135,7 @@
       <div class="panel-controls">
         <div class="controls">
           <button id="toggle">&#9654; start sound</button>
-          <button id="record" class="rec-btn" disabled title="record what you hear and save to a file">&#9679; record</button>
+          <button id="record" class="rec-btn" title="record what you hear (starts sound if needed)">&#9679; record</button>
           <span id="status" class="muted">stopped</span>
           <span id="source-line" class="muted source-line">&ndash;</span>
         </div>
@@ -684,8 +699,8 @@
       if (!el || !archive) return;
       el.style.display = "block";
       var liveCls = currentDayI === -1 ? " active" : "";
-      var parts = ['<span class="muted">archive:</span>',
-                   '<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
+      var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>',
+                   '<span class="muted">archive:</span>'];
       archive.days.forEach(function (d, i) {
         var cls = (i === currentDayI ? " active" : "");
         parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');
@@ -856,9 +871,6 @@
         pollTimer = setInterval(poll, POLL_MS);
       }
       document.getElementById("toggle").innerHTML = "&#9632; stop sound";
-      // enable record button if MediaRecorder is supported and we have a tap
-      var rb = document.getElementById("record");
-      if (rb) rb.disabled = !(recDest && pickRecMime());
       setStatus(
         demoMode ? "demo playing (synthetic data)"
         : (currentDayI !== -1
@@ -877,8 +889,9 @@
       setTimeout(function () { if (actx) { actx.close(); actx = null; recDest = null; } }, 1000);
       running = false;
       document.getElementById("toggle").innerHTML = "&#9654; start sound";
+      // record button stays enabled — next click will auto-start sound again
       var rb = document.getElementById("record");
-      if (rb) { rb.disabled = true; rb.classList.remove("on"); rb.innerHTML = "&#9679; record"; }
+      if (rb) { rb.classList.remove("on"); rb.innerHTML = "&#9679; record"; }
       setStatus(
         demoMode ? "demo paused"
         : (currentDayI !== -1
@@ -891,9 +904,22 @@
       if (running) stop(); else start();
     });
     document.getElementById("record").addEventListener("click", function () {
-      if (recorder && recorder.state === "recording") stopRecording();
-      else startRecording();
+      if (recorder && recorder.state === "recording") { stopRecording(); return; }
+      // one click = start sound (if needed) + start recording
+      if (!running) start();
+      startRecording();
     });
+    // disable record only if the browser can't record at all (no MediaRecorder
+    // support or no usable mime). otherwise it's always clickable — first click
+    // brings up the audio graph itself.
+    (function () {
+      var rb = document.getElementById("record");
+      if (!rb) return;
+      if (typeof MediaRecorder === "undefined" || !pickRecMime()) {
+        rb.disabled = true;
+        rb.title = "your browser doesn't support audio recording";
+      }
+    })();
 
     function setupFilters() {
       var box = document.getElementById("filters");

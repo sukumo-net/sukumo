@@ -201,8 +201,8 @@
           if (!el || !archive) return;
           el.style.display = 'block';
           var liveCls = currentDayI === -1 ? ' active' : '';
-          var parts = ['<span class="muted">archive:</span>',
-                       '<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
+          var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>',
+                       '<span class="muted">archive:</span>'];
           archive.days.forEach(function (d, i) {
             var cls = (i === currentDayI ? ' active' : '');
             parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');
