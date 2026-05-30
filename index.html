@@ -95,7 +95,8 @@
 
         var png = document.getElementById('dashboard-png');
         var live = document.getElementById('dash-live');
-        var diagram = null, pollTimer = null;
+        var diagram = null, pollTimer = null, replayTimer = null;
+        var archive = null, archiveIdx = null, currentDayI = -1;   // -1 = live mode
 
         function vatDay(dateStr) {
           var ms = new Date((dateStr || '') + 'T00:00:00').getTime() - new Date(START_DATE + 'T00:00:00').getTime();
@@ -130,64 +131,86 @@
         }
 
         // live: latest reading from the published Sheet
-        function tryLive() {
+        function liveStep() {
           VatCloud.fetchReadings(SHEET_ID).then(function (reading) {
-            if (!reading) return;  // keep PNG
+            if (!reading) return;  // keep PNG / replay / whatever was showing
             showLive(reading);
             set('d-day', todayVatDay());
             set('d-updated', reading.timestamp_str ? ('updated ' + reading.timestamp_str) : '');
-            if (!pollTimer) pollTimer = setInterval(tryLive, 180000);
+          });
+        }
+        function goLive() {
+          if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+          currentDayI = -1;
+          renderDayBar();
+          liveStep();
+          if (!pollTimer) pollTimer = setInterval(liveStep, 180000);
+        }
+
+        // replay: step through one day from the bundled archive, looping
+        function rowToReading(row) {
+          var elec = {};
+          VatCloud.VOICES.forEach(function (v) { elec[v.key] = row[archiveIdx[v.key]]; });
+          return { electrodes: elec, temp: row[archiveIdx.temperature_c], ph: row[archiveIdx.ph],
+                   orp: row[archiveIdx.orp_mv], do: row[archiveIdx.do_mg_l] };
+        }
+        function replayDay(idx) {
+          if (!archive || !archive.days[idx]) return;
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+          if (replayTimer) clearInterval(replayTimer);
+          currentDayI = idx;
+          renderDayBar();
+          var day = archive.days[idx], rowI = 0;
+          function step() {
+            var row = day.rows[rowI];
+            showLive(rowToReading(row));
+            set('d-day', vatDay(day.date));
+            set('d-updated', 'replaying day ' + vatDay(day.date) + ' &middot; ' + row[archiveIdx.t]);
+            rowI = (rowI + 1) % day.rows.length;
+          }
+          step();
+          replayTimer = setInterval(step, 550);
+        }
+
+        // the day-bar — "live" + every archived day. always visible once the
+        // archive is loaded; clicking switches modes.
+        function renderDayBar() {
+          var el = document.getElementById('dash-days');
+          if (!el || !archive) return;
+          el.style.display = 'block';
+          var liveCls = currentDayI === -1 ? ' active' : '';
+          var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
+          archive.days.forEach(function (d, i) {
+            var cls = (i === currentDayI ? ' active' : '');
+            parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');
+          });
+          el.innerHTML = parts.join(' ');
+          Array.prototype.forEach.call(el.querySelectorAll('.day-link'), function (a) {
+            a.addEventListener('click', function (e) {
+              e.preventDefault();
+              var v = a.getAttribute('data-i');
+              if (v === 'live') goLive(); else replayDay(+v);
+            });
           });
         }
 
-        // demo/preview: replay recorded days from the bundled sample; pick a day below
-        function startReplay() {
-          fetch('sample-readings.json', { cache: 'no-store' })
-            .then(function (r) { return r.ok ? r.json() : null; })
-            .then(function (data) {
-              if (!data || !data.days || !data.days.length) return;  // keep PNG if missing
-              var idx = {}; data.cols.forEach(function (c, i) { idx[c] = i; });
-              var days = data.days, dayI = days.length - 1, rowI = 0, timer = null;
-              var daysEl = document.getElementById('dash-days');
-
-              function toReading(row) {
-                var elec = {};
-                VatCloud.VOICES.forEach(function (v) { elec[v.key] = row[idx[v.key]]; });
-                return { electrodes: elec, temp: row[idx.temperature_c], ph: row[idx.ph],
-                         orp: row[idx.orp_mv], do: row[idx.do_mg_l] };
-              }
-              function step() {
-                var day = days[dayI], row = day.rows[rowI];
-                showLive(toReading(row));
-                set('d-day', vatDay(day.date));
-                set('d-updated', 'replaying day ' + vatDay(day.date) + ' &middot; ' + row[idx.t]);
-                rowI = (rowI + 1) % day.rows.length;
-              }
-              function renderLinks() {
-                daysEl.style.display = 'block';
-                daysEl.innerHTML = '<span class="muted">replaying &mdash; pick a day:</span> ' +
-                  days.map(function (d, i) {
-                    return '<a href="#" data-i="' + i + '" class="day-link' + (i === dayI ? ' active' : '') + '">' +
-                           vatDay(d.date) + '</a>';
-                  }).join('');
-                Array.prototype.forEach.call(daysEl.querySelectorAll('.day-link'), function (a) {
-                  a.addEventListener('click', function (e) {
-                    e.preventDefault(); dayI = +a.getAttribute('data-i'); play();
-                  });
-                });
-              }
-              function play() { rowI = 0; if (timer) clearInterval(timer); step(); timer = setInterval(step, 550); renderLinks(); }
-              play();
-            });
-        }
-
+        // boot: load archive (for the day picker), then pick the initial mode
         var configured = SHEET_ID.indexOf('REPLACE_WITH') !== 0;
         var demoOverride = /[?&]demo\b/.test(location.search);
-        // ?demo always wins (lets you replay history from sample-readings.json
-        // even after the live sheet is wired up). otherwise prefer live, then PNG.
-        if (demoOverride) startReplay();
-        else if (configured) tryLive();
-        // else: not configured, no demo -> the e-ink PNG stays
+        fetch('sample-readings.json', { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (data && data.days && data.days.length) {
+              archive = data;
+              archiveIdx = {};
+              data.cols.forEach(function (c, i) { archiveIdx[c] = i; });
+            }
+            // ?demo opens on the latest archived day; otherwise prefer live.
+            if (demoOverride && archive) replayDay(archive.days.length - 1);
+            else if (configured) goLive();
+            else if (archive) replayDay(archive.days.length - 1);
+            // else: stay on the PNG
+          });
       })();
     </script>
 

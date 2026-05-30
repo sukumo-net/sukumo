@@ -79,6 +79,11 @@
       width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
     }
     input[type="range"].fx:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    /* day archive — "live" + each historical day. clicking switches modes. */
+    .vat-days { margin: 1rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
+    .vat-days a { margin-right: 0.55rem; white-space: nowrap; color: var(--ink-soft); }
+    .vat-days a.active { font-weight: 700; color: var(--ink); }
+    .vat-days a:hover { color: var(--indigo); }
   </style>
 </head>
 <body>
@@ -153,6 +158,7 @@
     </div>
 
     <div id="vat-legend" class="vat-legend" aria-label="electrode key and live voltages"></div>
+    <div id="vat-days" class="vat-days" aria-label="day archive" style="display:none"></div>
 
   </main>
 
@@ -257,6 +263,20 @@
     var UNIT_DIGITS = { temp: 1, ph: 2, orp: 0, do: 2 };
     var UNIT_LABEL  = { temp: " &deg;C", ph: "", orp: " mV", do: " mg/L" };
     var diagram = null;          // the shared vat diagram (created at boot)
+
+    // day-archive replay state — clicking a day in the bar at the bottom force-
+    // feeds that day's rows through the same P / latestData path that polling
+    // uses, looping much faster than realtime so a full vat day cycles in ~10s.
+    var START_DATE = "2026-05-12";   // vat day 1
+    var archive = null, archiveIdx = null;
+    var currentDayI = -1;            // -1 = live; otherwise index into archive.days
+    var replayTimer = null, replayRowI = 0;
+    var REPLAY_STEP_MS = 220;        // ~10 s per 48-row day, looping
+    function vatDay(dateStr) {
+      var ms = new Date((dateStr || "") + "T00:00:00").getTime()
+             - new Date(START_DATE + "T00:00:00").getTime();
+      return isNaN(ms) ? "–" : Math.max(1, Math.round(ms / 86400000) + 1);
+    }
 
     function map(v, a, b, c, d) {
       if (v === null || v === undefined || isNaN(v)) return (c + d) / 2;
@@ -591,6 +611,72 @@
       });
     }
 
+    // ---------------------------------------------------------------
+    // day archive — same bar as the dashboard, but looping fast so the chord
+    // hears 24 h of vat data in ~10 s. clicking a day stops live polling and
+    // starts the replay; clicking "live" returns to sheet polling.
+    // ---------------------------------------------------------------
+    function archiveRowToLatest(row, dayDate) {
+      var elec = {};
+      VOICES.forEach(function (v) { elec[v.key] = row[archiveIdx[v.key]]; });
+      return {
+        timestamp_str: "day " + vatDay(dayDate) + " · " + row[archiveIdx.t],
+        electrodes: elec,
+        temp: row[archiveIdx.temperature_c], ph: row[archiveIdx.ph],
+        orp: row[archiveIdx.orp_mv],         do:  row[archiveIdx.do_mg_l]
+      };
+    }
+    function replayDay(idx) {
+      if (!archive || !archive.days[idx]) return;
+      if (replayTimer) clearInterval(replayTimer);
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      currentDayI = idx;
+      replayRowI = 0;
+      renderDayBar();
+      var day = archive.days[idx];
+      function step() {
+        var row = day.rows[replayRowI];
+        var r = archiveRowToLatest(row, day.date);
+        latestData = r;
+        P.temp = r.temp; P.ph = r.ph; P.orp = r.orp; P.do = r.do;
+        replayRowI = (replayRowI + 1) % day.rows.length;
+      }
+      step();
+      replayTimer = setInterval(step, REPLAY_STEP_MS);
+      setStatus(running ? "replaying day " + vatDay(day.date)
+                        : "previewing day " + vatDay(day.date) + " — press play for sound");
+    }
+    function goLive() {
+      if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
+      currentDayI = -1;
+      renderDayBar();
+      if (running && !demoMode) {
+        if (!pollTimer) { poll(); pollTimer = setInterval(poll, POLL_MS); }
+        setStatus("playing");
+      } else if (!running) {
+        setStatus(demoMode ? "demo — press play to hear it" : "stopped");
+      }
+    }
+    function renderDayBar() {
+      var el = document.getElementById("vat-days");
+      if (!el || !archive) return;
+      el.style.display = "block";
+      var liveCls = currentDayI === -1 ? " active" : "";
+      var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
+      archive.days.forEach(function (d, i) {
+        var cls = (i === currentDayI ? " active" : "");
+        parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');
+      });
+      el.innerHTML = parts.join(" ");
+      Array.prototype.forEach.call(el.querySelectorAll(".day-link"), function (a) {
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          var v = a.getAttribute("data-i");
+          if (v === "live") goLive(); else replayDay(+v);
+        });
+      });
+    }
+
     // demo: smooth, slowly-evolving synthetic readings so the page is alive
     // before a real readings Sheet is configured.
     function demoElectrodes(tSec) {
@@ -672,6 +758,9 @@
         latestData = { timestamp_str: "demo", electrodes: elec,
                        temp: dp.temp, ph: dp.ph, orp: dp.orp, do: dp.do };
         applyReadings(elec);
+      } else if (currentDayI !== -1 && latestData) {
+        // replay mode — animate the diagram from replay data, even before sound starts
+        applyReadings(latestData.electrodes);
       } else if (running) {
         applyReadings(latestData ? latestData.electrodes : null);
       } else {
@@ -735,14 +824,21 @@
       actx.resume();
       master.gain.linearRampToValueAtTime(0.42, actx.currentTime + MASTER_RAMP);
       running = true;
-      if (!demoMode) { poll(); pollTimer = setInterval(poll, POLL_MS); }
+      // only poll the live sheet when neither demo nor replay owns the data
+      if (!demoMode && currentDayI === -1) {
+        poll();
+        pollTimer = setInterval(poll, POLL_MS);
+      }
       document.getElementById("toggle").innerHTML = "&#9632; stop sound";
       // enable record button if MediaRecorder is supported and we have a tap
       var rb = document.getElementById("record");
       if (rb) rb.disabled = !(recDest && pickRecMime());
-      setStatus(demoMode
-        ? "demo playing (synthetic data)"
-        : "playing");
+      setStatus(
+        demoMode ? "demo playing (synthetic data)"
+        : (currentDayI !== -1
+            ? "replaying day " + vatDay(archive.days[currentDayI].date)
+            : "playing")
+      );
     }
 
     function stop() {
@@ -757,7 +853,12 @@
       document.getElementById("toggle").innerHTML = "&#9654; start sound";
       var rb = document.getElementById("record");
       if (rb) { rb.disabled = true; rb.classList.remove("on"); rb.innerHTML = "&#9679; record"; }
-      setStatus(demoMode ? "demo paused" : "stopped");
+      setStatus(
+        demoMode ? "demo paused"
+        : (currentDayI !== -1
+            ? "previewing day " + vatDay(archive.days[currentDayI].date) + " — press play for sound"
+            : "stopped")
+      );
     }
 
     document.getElementById("toggle").addEventListener("click", function () {
@@ -826,6 +927,19 @@
     buildLegend();
     setupFilters();
     updateReadout();
+    // load the bundled day archive in the background — once it's in, the
+    // day-bar appears under the legend and clicking any day starts a fast
+    // looped replay.
+    fetch("sample-readings.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.days || !data.days.length) return;
+        archive = data;
+        archiveIdx = {};
+        data.cols.forEach(function (c, i) { archiveIdx[c] = i; });
+        renderDayBar();
+      })
+      .catch(function () { /* archive missing — bar stays hidden */ });
     setStatus(demoMode
       ? "demo — press play to hear it (no live sheet configured yet)"
       : "stopped");
