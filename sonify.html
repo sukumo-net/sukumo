@@ -19,7 +19,7 @@
     .panel-controls { flex: 1 1 280px; min-width: 250px; }
     /* electrode colour key + live voltages — full width below the panel */
     .vat-legend {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 0.18rem 1.6rem; margin: 1.2rem 0 0; font-size: 0.8rem; color: var(--ink-soft);
     }
     .vat-legend .leg { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; cursor: pointer; }
@@ -45,12 +45,14 @@
     .filter-head { display: flex; align-items: baseline; gap: 0.6rem; font-size: 0.72rem;
                    text-transform: lowercase; letter-spacing: 0.06em; color: var(--ink-faint);
                    padding-bottom: 0.1rem; border-bottom: 1px dashed var(--ink-faint); }
-    .filter-head .h-name    { width: 6em; }
+    .filter-head .h-name    { width: 13em; }
     .filter-head .h-reading { width: 6.8em; }
     .filter-head .h-plus    { width: 0.9em; text-align: center; }
     .filter-head .h-intensity { flex: 1; }
-    .filter-ctl { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
-    .filter-ctl > .ctl-name { width: 6em; text-transform: lowercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+    .filter-ctl { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+    .filter-ctl > .ctl-name { width: 13em; text-transform: lowercase; letter-spacing: 0.04em;
+                              color: var(--ink-soft); white-space: nowrap; }
+    .ctl-name .ctl-target { color: var(--ink-faint); font-size: 0.78em; margin-left: 0.2em; }
     .filter-ctl > .ctl-plus { width: 0.9em; text-align: center; color: var(--ink-faint); font-size: 0.9em; }
     /* the reading: live value display + unit to the right (read-only). */
     .ctl-reading { width: 6.8em; display: inline-flex; align-items: baseline; gap: 0.25rem; }
@@ -77,12 +79,6 @@
       width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
     }
     input[type="range"].fx:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
-    /* subhead inside "// how it maps" — introduces the 4 filter rows below */
-    .filter-subhead { font-size: 0.95rem; margin: 1.1rem 0 0.15rem; color: var(--ink);
-                      text-transform: lowercase; letter-spacing: 0.04em; font-weight: 700; }
-    .filter-subhead-desc { font-size: 0.85rem; color: var(--ink-soft);
-                           margin: 0 0 0.7rem; padding-bottom: 0.5rem;
-                           border-bottom: 1px dashed var(--ink-faint); }
   </style>
 </head>
 <body>
@@ -102,7 +98,7 @@
   <main id="top">
 
     <h1>sonify</h1>
-    <p>8 electrodes &rarr; 8 voices in a 3D chord, positioned where each electrode sits in the vat. raise a slider to blend in a reading. <span class="muted">demo data until the pi's sheet is live.</span></p>
+    <p>each of the 8 electrodes is a voice in a 3D chord. click any electrode in the diagram to mute its voice, raise an intensity slider to blend in a filter, or hit record to save what you hear. <span class="muted">demo data until the pi's sheet is live.</span></p>
 
     <div class="panel">
       <div class="panel-graphic">
@@ -129,25 +125,25 @@
             <span class="h-intensity">intensity</span>
           </div>
           <div class="filter-ctl">
-            <span class="ctl-name">temperature</span>
+            <span class="ctl-name">temp <span class="ctl-target">(saturation)</span></span>
             <span class="ctl-reading"><span class="rd" id="rd-temp">&ndash;</span><span class="ru">&deg;C</span></span>
             <span class="ctl-plus">+</span>
             <input type="range" class="fx" data-f="temp" min="0" max="100" value="0" aria-label="temperature intensity">
           </div>
           <div class="filter-ctl">
-            <span class="ctl-name">pH</span>
+            <span class="ctl-name">pH <span class="ctl-target">(cutoff + tremolo)</span></span>
             <span class="ctl-reading"><span class="rd" id="rd-ph">&ndash;</span><span class="ru">&nbsp;</span></span>
             <span class="ctl-plus">+</span>
             <input type="range" class="fx" data-f="ph" min="0" max="100" value="0" aria-label="pH intensity">
           </div>
           <div class="filter-ctl">
-            <span class="ctl-name">ORP</span>
+            <span class="ctl-name">ORP <span class="ctl-target">(reverb + sub)</span></span>
             <span class="ctl-reading"><span class="rd" id="rd-orp">&ndash;</span><span class="ru">mV</span></span>
             <span class="ctl-plus">+</span>
             <input type="range" class="fx" data-f="orp" min="0" max="100" value="0" aria-label="ORP intensity">
           </div>
           <div class="filter-ctl">
-            <span class="ctl-name">DO</span>
+            <span class="ctl-name">DO <span class="ctl-target">(bells)</span></span>
             <span class="ctl-reading"><span class="rd" id="rd-do">&ndash;</span><span class="ru">mg/L</span></span>
             <span class="ctl-plus">+</span>
             <input type="range" class="fx" data-f="do" min="0" max="100" value="0" aria-label="DO intensity">
@@ -157,26 +153,6 @@
     </div>
 
     <div id="vat-legend" class="vat-legend" aria-label="electrode key and live voltages"></div>
-
-    <section class="explainer">
-      <h2>// how it maps</h2>
-      <dl class="protocol">
-        <dt>8 electrodes</dt>
-        <dd>one voice each, louder as voltage rises. muting transposes the chord (centroid &rarr; cents) and switches the scale: bottom-heavy = Hirajōshi, top-heavy = Yo.</dd>
-      </dl>
-      <h3 class="filter-subhead">reading + intensity</h3>
-      <p class="filter-subhead-desc">filter's target value (saturation amount, cutoff, reverb wet, bell rate) + how much of that filter blends into the chord.</p>
-      <dl class="protocol">
-        <dt>temperature</dt>
-        <dd>saturation drive.</dd>
-        <dt>pH</dt>
-        <dd>lowpass cutoff + tremolo rate.</dd>
-        <dt>ORP</dt>
-        <dd>reverb wet + sub sine at the root.</dd>
-        <dt>DO</dt>
-        <dd>panned bells (rate scales with the reading).</dd>
-      </dl>
-    </section>
 
   </main>
 
@@ -194,7 +170,7 @@
     // The public "readings" Sheet the pi publishes to. Replace with the real
     // id; while it's the placeholder the page runs in DEMO mode (synthetic),
     // switching to live data automatically once a real id is filled in.
-    var READINGS_SHEET_ID = "REPLACE_WITH_READINGS_SHEET_ID";
+    var READINGS_SHEET_ID = "1COH-LVbzBpXIfV0IzQnfDb3Gz5LVbFnxlY0D2xVP_L8";
     var demoMode = READINGS_SHEET_ID.indexOf("REPLACE_WITH") === 0;
 
     var POLL_MS = 180000;       // live re-fetch interval (publish is ~30 min)
@@ -818,12 +794,18 @@
       var el = document.getElementById("vat-legend");
       if (!el) return;
       var order = ["sfc_n", "sfc_s", "sfc_e", "sfc_w", "mid_n", "mid_s", "btm_n", "btm_s"];
+      var KEY_LABEL = {
+        sfc_n: "surface north", sfc_s: "surface south",
+        sfc_e: "surface east",  sfc_w: "surface west",
+        mid_n: "middle north",  mid_s: "middle south",
+        btm_n: "bottom north",  btm_s: "bottom south"
+      };
       var byKey = {};
       VOICES.forEach(function (v) { byKey[v.key] = v; });
       el.innerHTML = order.map(function (k) {
         var v = byKey[k];
         return '<span class="leg" data-k="' + k + '" title="click to mute / unmute">' +
-               '<i style="background:' + v.col + '"></i>' + k +
+               '<i style="background:' + v.col + '"></i>' + (KEY_LABEL[k] || k) +
                '<span class="lv" id="lv-' + k + '">&ndash;</span></span>';
       }).join("");
       Array.prototype.forEach.call(el.querySelectorAll(".leg"), function (span) {

@@ -86,7 +86,7 @@
 
     <script>
       (function () {
-        var SHEET_ID = "REPLACE_WITH_READINGS_SHEET_ID";
+        var SHEET_ID = "1COH-LVbzBpXIfV0IzQnfDb3Gz5LVbFnxlY0D2xVP_L8";
         var START_DATE = "2026-05-12";   // vat day 1
 
         // PNG cache-buster (the pi-rendered fallback)
@@ -210,7 +210,7 @@
 
     <section class="explainer">
       <h2>// the diagram</h2>
-      <p>top-down view of the vat. each of the 8 electrodes is a dot in its wire colour, set where it sits in the vat &mdash; surface electrodes on the outer ring, mid and bottom nearer the centre; N/S/E/W match the vat walls.</p>
+      <p>top-down view of the vat. each of the 8 electrodes is a dot in its wire colour, set where it sits in the vat &mdash; surface electrodes on the outer ring, middle on the next ring in, bottom on the innermost; N/S/E/W match the vat walls.</p>
       <p>each electrode lays down a two-part gaussian kernel (a tight core plus a wider halo); the density at a pixel is the level-weighted sum across all eight:</p>
       <pre>w_k(p) = exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_c&sup2;) + 0.6 &middot; exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_h&sup2;)
 where &sigma;_c &asymp; 0.13 &middot; R  and  &sigma;_h &asymp; 0.40 &middot; R
@@ -402,7 +402,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
     <p>using the vat data in your own work: sound, visuals, anything. two paths &mdash; the public archive (csv, anywhere, any time) and the live OSC stream (lab-only, while the pi is powered up).</p>
 
     <h3>hear it now</h3>
-    <p>a ready-made browser sonification turns the vat's readings into sound &mdash; 8 electrodes as a spatial chord, with temperature, ph, orp and do shaping pitch, brightness, space and air. works from anywhere (reads the pi's published readings); <strong>use headphones</strong> for the 3D positioning.</p>
+    <p>a browser sonification turns the readings into a 3D chord. temperature, pH, ORP and DO each blend in a filter. click to mute, slide to shape, record to save. polls the pi's sheet; demo data until that's wired up.</p>
     <p><a href="sonify.html">open the sonification &rarr;</a></p>
 
     <h3>working from the archive</h3>
