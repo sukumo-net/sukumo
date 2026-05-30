@@ -259,15 +259,16 @@
 
     <section class="explainer">
       <h2>// the diagram</h2>
-      <p>a top-down view of the vat. the 8 electrodes sit as coloured dots, with surface electrodes on the outer ring, middle on the next ring in, bottom on the innermost; N/S/E/W match the vat walls. around each electrode a dithered cloud swells with that electrode's level, and where two clouds overlap their wire colours blend. the 1-bit speckle is intentional &mdash; this view replaces a real e-ink panel.</p>
-      <p>behind the picture, each electrode contributes a smooth two-part presence (a tight core plus a wider halo), and the density at a pixel is the level-weighted sum across all eight:</p>
+      <p>a top-down view of the vat. each electrode is a coloured dot. surface electrodes sit on the outer ring, middle on the next ring in, bottom on the innermost. N/S/E/W match the vat walls.</p>
+      <p>around each dot, a speckled cloud grows with the electrode's reading. where clouds overlap, colours mix. the grainy texture comes from 1-bit dithering, which matches the e-ink panel this view replaces.</p>
+      <p>each pixel's density is the sum across all electrodes, weighted by reading:</p>
       <pre>w_k(p) = exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_c&sup2;) + 0.6 &middot; exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_h&sup2;)
 where &sigma;_c &asymp; 0.13 &middot; R  and  &sigma;_h &asymp; 0.40 &middot; R
 D(p)   = &sum;_k  L_k &middot; w_k(p)      (L_k = electrode k's level, 0&ndash;1)</pre>
-      <p>that density is squared (which is what makes an active electrode "burn through" rather than just glow), capped, and dithered against a fixed per-pixel threshold. the threshold is fixed so the cloud glides as readings change instead of re-randomising every frame:</p>
+      <p>the density is squared (so high readings produce more contrast), capped, and compared to a fixed dither pattern. a pixel is inked when it exceeds the threshold:</p>
       <pre>P(p) = min(0.72, D(p)&sup2;)
 ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
-      <p>the colour of each inked pixel is the geometry-weighted blend of nearby wires (&sum;_k w_k &middot; c_k / &sum;_k w_k), which is why neighbouring clouds mix where they meet.</p>
+      <p>the colour of each inked pixel is a distance-weighted average of nearby wire colours: &sum;_k w_k &middot; c_k / &sum;_k w_k.</p>
 
       <h2>// orp target</h2>
       <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. indigo dyes only in its reduced, water-soluble (leuco) form and reverts to insoluble blue once reoxidised (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0013468602000282" target="_blank">Roessler et al., 2002</a>). in sukumo fermentation, reduction begins as ORP falls to about &minus;500 mV, and the indigo-reducing bacteria operate below &minus;600 mV (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>); the bar marks &minus;600 mV as its reference and the pointer turns red above &minus;550 mV.</p>
