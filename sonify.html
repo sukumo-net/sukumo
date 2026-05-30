@@ -38,6 +38,7 @@
     .rec-downloads .rec-item { display: flex; align-items: baseline; gap: 0.5rem; }
     .rec-downloads .rec-item a { color: var(--indigo); text-decoration: underline; }
     .rec-downloads .rec-item .rec-meta { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+    .rec-downloads .rec-item .rec-drive { margin-left: auto; }
     .filters { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; }
     .filters-label { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 0.1rem; }
     /* a small two-column header so it's obvious the left value is the reading
@@ -318,7 +319,16 @@
         tempDrive = null, recDest = null,
         running = false, pollTimer = null, lastAudio = 0;
     // recording state — captures master output to a downloadable audio file
-    var recorder = null, recChunks = [], recMime = null, recStartMs = 0;
+    var recorder = null, recChunks = [], recMime = null, recStartMs = 0, recDurationTimer = null;
+    // open the project's "incoming" Drive folder when the user wants to upload
+    // a recording — they drag the downloaded file into the tab that opens
+    var DRIVE_INCOMING_URL = "https://drive.google.com/drive/folders/1rVcjffMahZgunWBBHu5vXFo3gJUlTd_s";
+
+    function fmtDuration(sec) {
+      var m = Math.floor(sec / 60);
+      var s = Math.floor(sec % 60);
+      return m + ":" + (s < 10 ? "0" : "") + s;
+    }
     var dropAccum = {}, muted = {}, activeCount = 0;
     VOICES.forEach(function (v) { dropAccum[v.key] = Math.random(); muted[v.key] = false; });
     activeCount = VOICES.length;
@@ -590,7 +600,12 @@
       var meta = document.createElement("span"); meta.className = "rec-meta";
       var kb = (blob.size / 1024).toFixed(0);
       meta.textContent = "(" + durationSec.toFixed(1) + " s, " + kb + " KB)";
-      row.appendChild(a); row.appendChild(meta);
+      var drive = document.createElement("a");
+      drive.href = DRIVE_INCOMING_URL; drive.target = "_blank"; drive.rel = "noopener";
+      drive.className = "rec-drive";
+      drive.innerHTML = "&rarr; drive";
+      drive.title = "open the project's incoming Drive folder — drag the downloaded file in";
+      row.appendChild(a); row.appendChild(meta); row.appendChild(drive);
       slot.appendChild(row);
     }
     function startRecording() {
@@ -602,6 +617,7 @@
       catch (err) { recorder = null; return false; }
       recorder.ondataavailable = function (e) { if (e.data && e.data.size > 0) recChunks.push(e.data); };
       recorder.onstop = function () {
+        if (recDurationTimer) { clearInterval(recDurationTimer); recDurationTimer = null; }
         var dur = (Date.now() - recStartMs) / 1000;
         var blob = new Blob(recChunks, { type: recMime });
         if (blob.size > 0) addDownload(blob, dur);
@@ -612,7 +628,13 @@
       recorder.start();
       recStartMs = Date.now();
       var btn = document.getElementById("record");
-      if (btn) { btn.classList.add("on"); btn.innerHTML = "&#9632; stop recording"; }
+      if (btn) { btn.classList.add("on"); btn.innerHTML = "&#9632; stop &middot; 0:00"; }
+      // live timer in the button text
+      recDurationTimer = setInterval(function () {
+        var b = document.getElementById("record");
+        if (!b || !recorder || recorder.state !== "recording") return;
+        b.innerHTML = "&#9632; stop &middot; " + fmtDuration((Date.now() - recStartMs) / 1000);
+      }, 500);
       return true;
     }
     function stopRecording() {
