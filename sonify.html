@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script src="vatcloud.js"></script>
+  <script src="vatcloud.js?v=2"></script>
   <style>
     /* top-down vat graphic — framed like the e-ink panel on the dashboard */
     .vat-stage { border: none; background: var(--paper); padding: 0; margin: 0; display: flex; justify-content: center; }
@@ -22,17 +22,43 @@
       display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 0.18rem 1.6rem; margin: 1.2rem 0 0; font-size: 0.8rem; color: var(--ink-soft);
     }
-    .vat-legend .leg { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+    .vat-legend .leg { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; cursor: pointer; }
+    .vat-legend .leg.off { opacity: 0.4; text-decoration: line-through; }
     .vat-legend i { width: 10px; height: 10px; flex: 0 0 auto; }
     .vat-legend .lv { margin-left: auto; font-variant-numeric: tabular-nums; }
     /* transport row */
-    .controls { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.4rem 1rem; margin: 0 0 0.9rem; }
+    .controls { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.4rem 1rem; margin: 0 0 0.5rem; }
     .source-line { font-size: 0.8rem; flex-basis: 100%; }
-    .filters { display: flex; flex-direction: column; gap: 0.4rem; margin: 0; }
+    .rec-btn { font-size: 0.85em; }
+    .rec-btn.on { color: var(--indigo); }
+    /* saved-recordings list — appears below the transport row */
+    .rec-downloads { display: flex; flex-direction: column; gap: 0.15rem;
+                     font-size: 0.78rem; margin: 0 0 0.7rem; color: var(--ink-soft); }
+    .rec-downloads:empty { display: none; }
+    .rec-downloads .rec-item { display: flex; align-items: baseline; gap: 0.5rem; }
+    .rec-downloads .rec-item a { color: var(--indigo); text-decoration: underline; }
+    .rec-downloads .rec-item .rec-meta { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+    .filters { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; }
     .filters-label { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 0.1rem; }
+    /* a small two-column header so it's obvious the left value is the reading
+       you can type into and the right control is the intensity mixer */
+    .filter-head { display: flex; align-items: baseline; gap: 0.6rem; font-size: 0.72rem;
+                   text-transform: lowercase; letter-spacing: 0.06em; color: var(--ink-faint);
+                   padding-bottom: 0.1rem; border-bottom: 1px dashed var(--ink-faint); }
+    .filter-head .h-name    { width: 6em; }
+    .filter-head .h-reading { width: 6.8em; }
+    .filter-head .h-plus    { width: 0.9em; text-align: center; }
+    .filter-head .h-intensity { flex: 1; }
     .filter-ctl { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; }
-    .filter-ctl > span { width: 6.5em; text-transform: lowercase; letter-spacing: 0.04em; color: var(--ink-soft); }
-    .filter-ctl > .fv { width: 6em; text-align: right; color: var(--ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .filter-ctl > .ctl-name { width: 6em; text-transform: lowercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+    .filter-ctl > .ctl-plus { width: 0.9em; text-align: center; color: var(--ink-faint); font-size: 0.9em; }
+    /* the reading: live value display + unit to the right (read-only). */
+    .ctl-reading { width: 6.8em; display: inline-flex; align-items: baseline; gap: 0.25rem; }
+    .ctl-reading .rd {
+      display: inline-block; width: 4em; text-align: right;
+      color: var(--ink-soft); font-variant-numeric: tabular-nums;
+    }
+    .ctl-reading .ru { color: var(--ink-faint); font-size: 0.78em; }
     /* track echoes the diagram arcs: dotted/faint, filling to solid as you raise it */
     input[type="range"].fx {
       -webkit-appearance: none; appearance: none; flex: 1; height: 16px; cursor: pointer;
@@ -51,6 +77,12 @@
       width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
     }
     input[type="range"].fx:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    /* subhead inside "// how it maps" — introduces the 4 filter rows below */
+    .filter-subhead { font-size: 0.95rem; margin: 1.1rem 0 0.15rem; color: var(--ink);
+                      text-transform: lowercase; letter-spacing: 0.04em; font-weight: 700; }
+    .filter-subhead-desc { font-size: 0.85rem; color: var(--ink-soft);
+                           margin: 0 0 0.7rem; padding-bottom: 0.5rem;
+                           border-bottom: 1px dashed var(--ink-faint); }
   </style>
 </head>
 <body>
@@ -70,7 +102,7 @@
   <main id="top">
 
     <h1>sonify</h1>
-    <p>each of the vat's 8 electrodes reads a voltage and becomes a note in a chord, placed in 3D where that electrode sits in the vat &mdash; <strong>use headphones</strong>. raise a slider to blend in temperature, pH, ORP or DO. <span class="muted">demo data until the pi's sheet is live.</span></p>
+    <p>8 electrodes &rarr; 8 voices in a 3D chord, positioned where each electrode sits in the vat. raise a slider to blend in a reading. <span class="muted">demo data until the pi's sheet is live.</span></p>
 
     <div class="panel">
       <div class="panel-graphic">
@@ -82,35 +114,67 @@
       <div class="panel-controls">
         <div class="controls">
           <button id="toggle">&#9654; start sound</button>
+          <button id="record" class="rec-btn" disabled title="record what you hear and save to a file">&#9679; record</button>
           <span id="status" class="muted">stopped</span>
           <span id="source-line" class="muted source-line">&ndash;</span>
         </div>
+        <div id="rec-downloads" class="rec-downloads" aria-live="polite"></div>
 
         <div class="filters" id="filters">
           <span class="filters-label">shape the sound:</span>
-          <label class="filter-ctl"><span>temperature</span><input type="range" class="fx" data-f="temp" min="0" max="100" value="0" aria-label="temperature intensity"><b class="fv" id="fv-temp">&ndash;</b></label>
-          <label class="filter-ctl"><span>pH</span><input type="range" class="fx" data-f="ph" min="0" max="100" value="0" aria-label="pH intensity"><b class="fv" id="fv-ph">&ndash;</b></label>
-          <label class="filter-ctl"><span>ORP</span><input type="range" class="fx" data-f="orp" min="0" max="100" value="0" aria-label="ORP intensity"><b class="fv" id="fv-orp">&ndash;</b></label>
-          <label class="filter-ctl"><span>DO</span><input type="range" class="fx" data-f="do" min="0" max="100" value="0" aria-label="DO intensity"><b class="fv" id="fv-do">&ndash;</b></label>
+          <div class="filter-head">
+            <span class="h-name"></span>
+            <span class="h-reading">reading</span>
+            <span class="h-plus">+</span>
+            <span class="h-intensity">intensity</span>
+          </div>
+          <div class="filter-ctl">
+            <span class="ctl-name">temperature</span>
+            <span class="ctl-reading"><span class="rd" id="rd-temp">&ndash;</span><span class="ru">&deg;C</span></span>
+            <span class="ctl-plus">+</span>
+            <input type="range" class="fx" data-f="temp" min="0" max="100" value="0" aria-label="temperature intensity">
+          </div>
+          <div class="filter-ctl">
+            <span class="ctl-name">pH</span>
+            <span class="ctl-reading"><span class="rd" id="rd-ph">&ndash;</span><span class="ru">&nbsp;</span></span>
+            <span class="ctl-plus">+</span>
+            <input type="range" class="fx" data-f="ph" min="0" max="100" value="0" aria-label="pH intensity">
+          </div>
+          <div class="filter-ctl">
+            <span class="ctl-name">ORP</span>
+            <span class="ctl-reading"><span class="rd" id="rd-orp">&ndash;</span><span class="ru">mV</span></span>
+            <span class="ctl-plus">+</span>
+            <input type="range" class="fx" data-f="orp" min="0" max="100" value="0" aria-label="ORP intensity">
+          </div>
+          <div class="filter-ctl">
+            <span class="ctl-name">DO</span>
+            <span class="ctl-reading"><span class="rd" id="rd-do">&ndash;</span><span class="ru">mg/L</span></span>
+            <span class="ctl-plus">+</span>
+            <input type="range" class="fx" data-f="do" min="0" max="100" value="0" aria-label="DO intensity">
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="vat-legend" class="vat-legend" aria-label="electrode colour key and live voltages"></div>
+    <div id="vat-legend" class="vat-legend" aria-label="electrode key and live voltages"></div>
 
     <section class="explainer">
       <h2>// how it maps</h2>
       <dl class="protocol">
         <dt>8 electrodes</dt>
-        <dd>each a voice in a 3D chord; louder + pitch wavers as its voltage rises.</dd>
+        <dd>one voice each, louder as voltage rises. muting transposes the chord (centroid &rarr; cents) and switches the scale: bottom-heavy = Hirajōshi, top-heavy = Yo.</dd>
+      </dl>
+      <h3 class="filter-subhead">reading + intensity</h3>
+      <p class="filter-subhead-desc">filter's target value (saturation amount, cutoff, reverb wet, bell rate) + how much of that filter blends into the chord.</p>
+      <dl class="protocol">
         <dt>temperature</dt>
-        <dd>root pitch &mdash; warmer = higher.</dd>
+        <dd>saturation drive.</dd>
         <dt>pH</dt>
-        <dd>brightness &mdash; more alkaline = brighter.</dd>
+        <dd>lowpass cutoff + tremolo rate.</dd>
         <dt>ORP</dt>
-        <dd>reverb space &mdash; more reducing = more cavernous.</dd>
+        <dd>reverb wet + sub sine at the root.</dd>
         <dt>DO</dt>
-        <dd>breath &mdash; more oxygen = louder.</dd>
+        <dd>panned bells (rate scales with the reading).</dd>
       </dl>
     </section>
 
@@ -134,11 +198,75 @@
     var demoMode = READINGS_SHEET_ID.indexOf("REPLACE_WITH") === 0;
 
     var POLL_MS = 180000;       // live re-fetch interval (publish is ~30 min)
-    var ROOT_HZ = 110;          // chord root (raised by the temperature filter)
+    var ROOT_HZ = 70;           // chord root (raised by the temperature filter); lower = warmer
     var AUDIO_TC = 0.25;        // setTargetAtTime time constant (s)
     var AUDIO_UPDATE_MS = 50;   // throttle audio param updates (ms)
     var MASTER_RAMP = 0.8;      // master fade in/out (s)
     var POS_RADIUS = 2.0;       // 3D panner spread
+    var CHORUS = 5;             // cents — detune between each voice's paired oscillators (warmth)
+    var SAT_AMOUNT = 0.9;       // master soft-saturation drive (warmth/glue; lower = cleaner)
+    var DRONE_CUT = 1800;       // master lowpass default (lower = warmer); pH filter opens it
+    var DROP_RATE = 2.2;        // base event "drops"/sec per electrode (scaled by DO filter + level)
+    var DROP_DECAY = 0.95;      // drop tail length (s)
+
+    // each voice has BOTH a "dark" and "bright" scale degree — both Japanese
+    // pentatonics so the chord stays culturally coherent. centroid of active
+    // electrodes picks: bottom-heavy = Hirajōshi (dark, koto-like, m3/m6/b2),
+    // top-heavy = Yo (bright, M2/P4/M6). muting therefore does two musical
+    // things at once: it transposes the key (via keyCents) AND can flip the
+    // mode — the most dramatic audible change in tonal music.
+    // semitones from root:
+    var SCALE_MINOR = {  // Hirajōshi (0, 2, 3, 7, 8 within each octave)
+      btm_n: 0,  btm_s: 7,  mid_n: 8,  mid_s: 12,
+      sfc_w: 15, sfc_e: 19, sfc_n: 26, sfc_s: 31
+    };
+    var SCALE_MAJOR = {  // Yo (0, 2, 5, 7, 9 within each octave)
+      btm_n: 0,  btm_s: 7,  mid_n: 9,  mid_s: 12,
+      sfc_w: 14, sfc_e: 19, sfc_n: 26, sfc_s: 31
+    };
+    function modeFactor() {  // 0 = minor, 1 = major; centroid Y drives it
+      if (activeCount === 0) return 0.5;
+      var ySum = 0;
+      VOICES.forEach(function (v) { if (!muted[v.key]) ySum += v.pos[1]; });
+      var avgY = ySum / activeCount;     // -1 (all bottom) .. 1 (all surface)
+      return clamp((avgY + 1) / 2, 0, 1);
+    }
+    function scaleRatio(key) {
+      var semi = (modeFactor() >= 0.5 ? SCALE_MAJOR : SCALE_MINOR)[key] || 0;
+      return Math.pow(2, semi / 12);
+    }
+    // a small pool of melody-register notes (root..+2oct) for the slow melodic
+    // counter-voice. matches the current scale so it always belongs.
+    var MELODY_MIN = [12, 14, 15, 19, 20, 24, 26];   // Hirajōshi register
+    var MELODY_MAJ = [12, 14, 17, 19, 21, 24, 26];   // Yo register
+    function pickMelodySemi() {
+      var s = (modeFactor() >= 0.5) ? MELODY_MAJ : MELODY_MIN;
+      // weight toward root + 5th for a more "settled" feel
+      var i = Math.random();
+      if (i < 0.30) return s[0];                 // root
+      if (i < 0.55) return s[3];                 // 5th
+      return s[Math.floor(Math.random() * s.length)];
+    }
+
+    // per-electrode timbre — a distinct harmonic recipe (partial amplitudes,
+    // index 1 = fundamental) so each node has its own colour; all share the
+    // harmonic series so they stay consonant together. each is low-passed for warmth.
+    // p = harmonic recipe (index 1 = fundamental), cut = per-voice lowpass,
+    // vr/vd = a slow per-node vibrato (rate Hz / depth cents) so each also "breathes"
+    // differently. spectra are deliberately contrasting but all harmonic = consonant.
+    var TIMBRE = {
+      // bottoms — very dark, near-sine subs
+      btm_n: { p: [0, 1, 0.02],                                              cut: 600,  vr: 0.12, vd: 3 },  // pure sine
+      btm_s: { p: [0, 1, 0, 0.6, 0, 0.4, 0, 0.25],                          cut: 900,  vr: 0.20, vd: 7 },  // square-ish (odds only)
+      // mids — body of the chord, contrasting full vs. reedy
+      mid_n: { p: [0, 1, 0.75, 0.55, 0.4, 0.3, 0.22],                       cut: 1500, vr: 0.28, vd: 8 },  // saw / organ, full
+      mid_s: { p: [0, 1, 0.1, 0.75, 0.08, 0.5, 0.06, 0.3],                  cut: 1200, vr: 0.16, vd: 11 }, // reedy (strong evens)
+      // surface — brighter, but cuts kept moderate so they don't whistle
+      sfc_w: { p: [0, 1, 0, 0.75, 0, 0.25, 0, 0.12],                        cut: 1500, vr: 0.45, vd: 7 },  // clarinet (odds only)
+      sfc_e: { p: [0, 0.7, 1, 0.8, 0.6, 0.45, 0.32, 0.22],                  cut: 1900, vr: 0.55, vd: 12 }, // bright string (2nd dominant)
+      sfc_n: { p: [0, 1, 0, 0, 0.7, 0, 0, 0.35],                            cut: 1700, vr: 0.22, vd: 9 },  // metallic bell (sparse partials)
+      sfc_s: { p: [0, 1, 0, 0.65, 0, 0, 0.45],                              cut: 1500, vr: 0.38, vd: 7 }   // open fifth-heavy
+    };
 
     // electrode layout, colours and helpers come from the shared vatcloud.js
     var VOICES = VatCloud.VOICES;
@@ -150,6 +278,8 @@
     // environmental "filters" the listener blends in. fx = intensity 0..1.
     var fx = { temp: 0, ph: 0, orp: 0, do: 0 };
     var P = { temp: null, ph: null, orp: null, do: null };  // current param values
+    var UNIT_DIGITS = { temp: 1, ph: 2, orp: 0, do: 2 };
+    var UNIT_LABEL  = { temp: " &deg;C", ph: "", orp: " mV", do: " mg/L" };
     var diagram = null;          // the shared vat diagram (created at boot)
 
     function map(v, a, b, c, d) {
@@ -162,8 +292,43 @@
     // audio engine (8 electrodes + toggleable environmental filters)
     // ---------------------------------------------------------------
     var actx = null, master = null, voices = [],
-        lowpass = null, dryGain = null, wetGain = null, noiseGain = null,
+        lowpass = null, dryGain = null, wetGain = null, subGain = null,
+        tremGain = null, tremDepth = null, tremLFO = null,
+        tempDrive = null, recDest = null,
         running = false, pollTimer = null, lastAudio = 0;
+    // recording state — captures master output to a downloadable audio file
+    var recorder = null, recChunks = [], recMime = null, recStartMs = 0;
+    var dropAccum = {}, muted = {}, activeCount = 0;
+    VOICES.forEach(function (v) { dropAccum[v.key] = Math.random(); muted[v.key] = false; });
+    activeCount = VOICES.length;
+    // "solo factor": 0 when all voices on, 1 when all muted. updateAudio uses
+    // this to widen chorus, open the master filter, boost remaining voices
+    // and drench in reverb — so muting feels like a transformation, not just removal.
+    function soloFactor() { return (VOICES.length - activeCount) / VOICES.length; }
+    // tonal centroid of active voices -> the chord's key. the all-on chord is
+    // slightly surface-biased (avgY ≈ 0.25) so we subtract that as a baseline
+    // so muting nothing leaves the key at root. asymmetric: shifts up faster
+    // than down (avoids dropping into rumble).
+    function keyCents() {
+      if (activeCount === 0) return 0;
+      var ySum = 0, xSum = 0;
+      VOICES.forEach(function (v) { if (!muted[v.key]) { ySum += v.pos[1]; xSum += v.pos[0]; } });
+      var avgY = ySum / activeCount, avgX = xSum / activeCount;
+      var c = (avgY - 0.25) * 400 + avgX * 150;
+      return clamp(c, -200, 500);
+    }
+
+    function makeSatCurve(amount) {
+      var n = 1024, c = new Float32Array(n);
+      for (var i = 0; i < n; i++) { var x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * amount); }
+      return c;
+    }
+
+    function makeWave(p) {  // p = harmonic amplitudes (index 1 = fundamental)
+      var real = new Float32Array(p.length), imag = new Float32Array(p.length);
+      for (var i = 0; i < p.length; i++) real[i] = p[i];
+      return actx.createPeriodicWave(real, imag);
+    }
 
     function makeImpulse(seconds, decay) {
       var rate = actx.sampleRate, len = Math.floor(rate * seconds);
@@ -176,28 +341,40 @@
       return buf;
     }
 
-    function makeNoiseSource() {
-      var rate = actx.sampleRate;
-      var buf = actx.createBuffer(1, rate * 2, rate);
-      var d = buf.getChannelData(0);
-      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      var src = actx.createBufferSource();
-      src.buffer = buf; src.loop = true;
-      return src;
-    }
-
     function buildGraph() {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = 0.0;
 
+      var shaper = actx.createWaveShaper();
+      shaper.curve = makeSatCurve(SAT_AMOUNT); shaper.oversample = "2x";
       lowpass = actx.createBiquadFilter();
-      lowpass.type = "lowpass"; lowpass.frequency.value = 2600; lowpass.Q.value = 0.7;
-      var reverb = actx.createConvolver(); reverb.buffer = makeImpulse(3.0, 3.0);
+      lowpass.type = "lowpass"; lowpass.frequency.value = DRONE_CUT; lowpass.Q.value = 0.7;
+      var reverb = actx.createConvolver(); reverb.buffer = makeImpulse(5.0, 2.0);
       dryGain = actx.createGain(); dryGain.gain.value = 0.8;
       wetGain = actx.createGain(); wetGain.gain.value = 0.26;
-      master.connect(lowpass);
+      // pH -> tremolo: an amplitude wobble on the whole bus. depth grows with the pH slider,
+      // rate climbs with the live pH reading. baseline gain = 1 via ConstantSource.
+      tremGain = actx.createGain(); tremGain.gain.value = 1.0; // base; LFO adds on top
+      var tremDC = actx.createConstantSource(); tremDC.offset.value = 0;
+      tremDC.connect(tremGain.gain);   // no-op DC just to make additive-LFO summing explicit
+      tremLFO = actx.createOscillator(); tremLFO.type = "sine"; tremLFO.frequency.value = 4;
+      tremDepth = actx.createGain(); tremDepth.gain.value = 0; // pH controls this
+      tremLFO.connect(tremDepth); tremDepth.connect(tremGain.gain);
+      tremLFO.start(); tremDC.start();
+      // temperature -> drive into the soft-saturator. warmer vat = more harmonic
+      // excitement / "burn", no pitch change. baseline 1.0 (no extra drive).
+      tempDrive = actx.createGain(); tempDrive.gain.value = 1.0;
+      master.connect(tempDrive); tempDrive.connect(tremGain);
+      tremGain.connect(shaper); shaper.connect(lowpass);
       lowpass.connect(dryGain); lowpass.connect(reverb); reverb.connect(wetGain);
       dryGain.connect(actx.destination); wetGain.connect(actx.destination);
+      // recording tap — same dry+wet sum as the speakers, captured via MediaStream.
+      // only created if MediaRecorder is available; nothing is recorded until the
+      // user clicks "record".
+      if (typeof MediaRecorder !== "undefined") {
+        recDest = actx.createMediaStreamDestination();
+        dryGain.connect(recDest); wetGain.connect(recDest);
+      }
 
       var L = actx.listener;
       if (L.forwardX) {
@@ -205,10 +382,13 @@
         L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
       } else if (L.setOrientation) { L.setOrientation(0, 0, -1, 0, 1, 0); }
 
-      voices = VOICES.map(function (v) {
-        var osc = actx.createOscillator();
-        osc.type = "triangle"; osc.frequency.value = ROOT_HZ * v.ratio;
+      voices = VOICES.map(function (v, i) {
+        var tb = TIMBRE[v.key] || { p: [0, 1, 0.4], cut: 1800 };
+        var wave = makeWave(tb.p);
+        var r = scaleRatio(v.key);     // scale-degree position (replaces v.ratio)
         var g = actx.createGain(); g.gain.value = 0.0;
+        var vlp = actx.createBiquadFilter();
+        vlp.type = "lowpass"; vlp.frequency.value = tb.cut; vlp.Q.value = 0.6;
         var panner = actx.createPanner();
         panner.panningModel = "HRTF"; panner.distanceModel = "inverse";
         panner.refDistance = 1;
@@ -218,42 +398,206 @@
           panner.positionX.value = x; panner.positionY.value = y;
           panner.positionZ.value = z;
         } else if (panner.setPosition) { panner.setPosition(x, y, z); }
-        osc.connect(g); g.connect(panner); panner.connect(master); osc.start();
-        return { osc: osc, gain: g, key: v.key, ratio: v.ratio };
+        // paired oscillators (the node's own harmonic recipe), slightly detuned ->
+        // warm ensemble; tamed by a per-voice lowpass so each node stays warm + distinct
+        var o1 = actx.createOscillator(); o1.setPeriodicWave(wave);
+        o1.frequency.value = ROOT_HZ * r; o1.detune.value = CHORUS;
+        var o2 = actx.createOscillator(); o2.setPeriodicWave(wave);
+        o2.frequency.value = ROOT_HZ * r; o2.detune.value = -CHORUS;
+        // slow "breath" — a unique sub-audio amplitude swell per voice. multiplied
+        // INTO the voice gain (not added), so muted voices stay silent. each voice
+        // breathes at a different slow rate (0.05–0.16 Hz) so the chord undulates
+        // without ever fully syncing — gives the drone a floating, dreamy quality.
+        var breath = actx.createGain(); breath.gain.value = 1.0;
+        var bLfo = actx.createOscillator(); bLfo.type = "sine";
+        bLfo.frequency.value = 0.05 + i * 0.013 + Math.random() * 0.02;
+        var bLfg = actx.createGain(); bLfg.gain.value = 0.20;
+        bLfo.connect(bLfg); bLfg.connect(breath.gain); bLfo.start();
+        o1.connect(vlp); o2.connect(vlp); vlp.connect(breath); breath.connect(g);
+        g.connect(panner); panner.connect(master);
+        o1.start(); o2.start();
+        // slow per-node vibrato -> each voice drifts differently (extra identity).
+        // each voice's rate is unique so the chord never fully syncs.
+        if (tb.vr) {
+          var lfo = actx.createOscillator(); lfo.type = "sine"; lfo.frequency.value = tb.vr;
+          var lfg = actx.createGain(); lfg.gain.value = tb.vd;
+          lfo.connect(lfg); lfg.connect(o1.detune); lfg.connect(o2.detune); lfo.start();
+        }
+        return { osc: o1, osc2: o2, gain: g, key: v.key, ratio: r, wave: wave, cut: tb.cut };
       });
 
-      // DO "breath" layer — silent unless the DO filter is on
-      var noise = makeNoiseSource();
-      var nf = actx.createBiquadFilter();
-      nf.type = "bandpass"; nf.frequency.value = 2000; nf.Q.value = 0.5;
-      noiseGain = actx.createGain(); noiseGain.gain.value = 0.0;
-      noise.connect(nf); nf.connect(noiseGain); noiseGain.connect(master); noise.start();
+      // ORP "depth": a fat sine at the root, swelling as the vat reduces.
+      // sits at the root (not an octave below) so it's audibly present on
+      // typical headphones — the old sub-octave landed below 50 Hz.
+      var sub = actx.createOscillator(); sub.type = "sine"; sub.frequency.value = ROOT_HZ;
+      subGain = actx.createGain(); subGain.gain.value = 0.0;
+      sub.connect(subGain); subGain.connect(master); sub.start();
     }
 
     function updateAudio(viz) {
       if (!actx || !running) return;
       var now = actx.currentTime;
+      // 0 = all voices on, 1 = all muted. drives the transformation below.
+      // kept gentle — too much widening created audible beat-frequency whines
+      // on higher voices and starved ORP's reverb range.
+      var solo = soloFactor();
+      var soloBoost = 1 + solo * 0.4;     // remaining voices a little louder
+      var soloChorus = CHORUS * (1 + solo * 0.4);  // a touch wider
 
-      // temperature -> chord root pitch, blended from neutral by the intensity
-      var root = ROOT_HZ;
-      if (P.temp != null) root += fx.temp * (map(P.temp, 20, 35, 90, 180) - ROOT_HZ);
+      // temperature -> harmonic warmth (drive into the soft-saturator). higher
+      // P.temp = more harmonic excitement, no pitch change → no rumble.
+      var tWarm = (P.temp != null) ? clamp((P.temp - 20) / 15, 0, 1) : 0.5;
+      tempDrive.gain.setTargetAtTime(1 + fx.temp * tWarm * 2.0, now, AUDIO_TC);
+
+      // chord key — driven by the centroid of active electrodes (muting reshapes
+      // the chord's tonal center). also picks up the small temperature nudge.
+      var root = ROOT_HZ * Math.pow(2, keyCents() / 1200);
       voices.forEach(function (voice) {
-        var v = viz[voice.key];
-        voice.osc.frequency.setTargetAtTime(root * voice.ratio, now, AUDIO_TC);
-        voice.gain.gain.setTargetAtTime(0.04 + 0.16 * v, now, AUDIO_TC);
-        voice.osc.detune.setTargetAtTime((v - 0.5) * 60, now, AUDIO_TC);
+        // pick up the live mode/key each frame so muting actually retunes voices
+        var v = viz[voice.key], f = root * scaleRatio(voice.key), waver = (v - 0.5) * 60;
+        voice.osc.frequency.setTargetAtTime(f, now, AUDIO_TC);
+        voice.osc2.frequency.setTargetAtTime(f, now, AUDIO_TC);
+        voice.gain.gain.setTargetAtTime(muted[voice.key] ? 0 : (0.015 + 0.07 * v) * soloBoost, now, AUDIO_TC);
+        voice.osc.detune.setTargetAtTime(soloChorus + waver, now, AUDIO_TC);
+        voice.osc2.detune.setTargetAtTime(-soloChorus + waver, now, AUDIO_TC);
       });
 
-      // pH -> brightness, ORP -> space, DO -> breath; each blended by intensity
-      var cutoff = 2600;
-      if (P.ph != null) cutoff += fx.ph * (map(P.ph, 9, 12, 500, 5000) - 2600);
+      // pH -> brightness sweep AND tremolo on the whole bus (very audible amplitude wobble).
+      // ORP -> reverb space + sub-bass swell. DO -> drops (in onFrame).
+      var cutoff = DRONE_CUT;
+      if (P.ph != null) cutoff += fx.ph * (map(P.ph, 8, 12, 300, 7000) - DRONE_CUT);
+      // soloing also opens the master filter slightly — fewer voices feel airier
+      cutoff *= (1 + solo * 0.35);
       lowpass.frequency.setTargetAtTime(cutoff, now, AUDIO_TC);
+      lowpass.Q.setTargetAtTime(0.7 + (P.ph != null ? fx.ph * 0.6 : 0), now, AUDIO_TC);  // gentle resonance as pH rises (no whine)
+      // tremolo: depth scales with the pH slider, rate climbs with live pH
+      var trRate = (P.ph != null) ? map(P.ph, 8, 12, 2, 8) : 4;
+      var trDepth = fx.ph * 0.55;   // up to ±0.55 around 1.0 = strong wobble
+      tremLFO.frequency.setTargetAtTime(trRate, now, AUDIO_TC);
+      tremDepth.gain.setTargetAtTime(trDepth, now, AUDIO_TC);
       var wet = 0.26;
-      if (P.orp != null) wet += fx.orp * (map(P.orp, -700, 0, 0.6, 0.1) - 0.26);
+      if (P.orp != null) wet += fx.orp * (map(P.orp, -700, -200, 0.95, 0.05) - 0.26);
+      // soloing adds a touch more reverb — but kept small so ORP keeps its range
+      wet = clamp(wet + solo * 0.20, 0, 1.0);
       wetGain.gain.setTargetAtTime(wet, now, AUDIO_TC);
-      dryGain.gain.setTargetAtTime(1 - wet * 0.6, now, AUDIO_TC);
-      var nz = (P.do != null) ? fx.do * map(P.do, 0, 8, 0.0, 0.07) : 0.0;
-      noiseGain.gain.setTargetAtTime(nz, now, AUDIO_TC);
+      dryGain.gain.setTargetAtTime(Math.max(0.15, 1 - wet * 0.85), now, AUDIO_TC);
+      // ORP sub-bass swell — louder the more reducing the vat
+      subGain.gain.setTargetAtTime(P.orp != null ? fx.orp * map(P.orp, -700, -200, 0.6, 0) : 0, now, AUDIO_TC);
+    }
+
+    // a slow, sparse melodic note — soft triangle, scale-aware, randomly
+    // panned, plays one note every ~7-13 s while sound is running. gives the
+    // drone an implied "player" without crowding the texture.
+    function playMelodyNote() {
+      if (!actx || !running) return;
+      var now = actx.currentTime;
+      var keyMult = Math.pow(2, keyCents() / 1200);
+      var freq = ROOT_HZ * keyMult * Math.pow(2, pickMelodySemi() / 12);
+      var o = actx.createOscillator(); o.type = "triangle"; o.frequency.value = freq;
+      // gentle vibrato so the note has life
+      var lfo = actx.createOscillator(); lfo.frequency.value = 4.5;
+      var lfg = actx.createGain(); lfg.gain.value = 5;
+      lfo.connect(lfg); lfg.connect(o.detune); lfo.start(now); lfo.stop(now + 6.8);
+      var g = actx.createGain();
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.030, now + 1.2);    // very slow swell
+      g.gain.linearRampToValueAtTime(0.020, now + 3.0);    // settle
+      g.gain.exponentialRampToValueAtTime(0.0005, now + 6.5);
+      var pan = actx.createPanner();
+      pan.panningModel = "HRTF"; pan.distanceModel = "inverse"; pan.refDistance = 1;
+      var pp = (Math.random() - 0.5) * 1.8;
+      if (pan.positionX) { pan.positionX.value = pp; pan.positionY.value = 0.5; pan.positionZ.value = -0.5; }
+      else if (pan.setPosition) { pan.setPosition(pp, 0.5, -0.5); }
+      o.connect(g); g.connect(pan); pan.connect(master);
+      o.start(now); o.stop(now + 6.8);
+    }
+
+    // a short panned "drop" — pure sine, no filter, sparkly bell character.
+    // pitch is one octave above the voice but clamped so the bottom voices
+    // ring instead of thud. each electrode fires at a rate that rises with level.
+    function triggerDrop(v, level) {
+      if (!actx) return;
+      var now = actx.currentTime;
+      var o = actx.createOscillator(); o.type = "sine";
+      o.frequency.value = Math.max(260, ROOT_HZ * scaleRatio(v.key) * 2);
+      var g = actx.createGain();
+      var peak = 0.038 + 0.09 * level;
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(peak, now + 0.010);
+      g.gain.exponentialRampToValueAtTime(0.0005, now + DROP_DECAY);
+      var pan = actx.createPanner();
+      pan.panningModel = "HRTF"; pan.distanceModel = "inverse"; pan.refDistance = 1;
+      var x = v.pos[0] * POS_RADIUS, y = v.pos[1] * POS_RADIUS, z = v.pos[2] * POS_RADIUS;
+      if (pan.positionX) { pan.positionX.value = x; pan.positionY.value = y; pan.positionZ.value = z; }
+      else if (pan.setPosition) { pan.setPosition(x, y, z); }
+      o.connect(g); g.connect(pan); pan.connect(master);
+      o.start(now); o.stop(now + DROP_DECAY + 0.1);
+    }
+
+    // ---------------------------------------------------------------
+    // recording — capture the master output to a downloadable audio file.
+    // tracks the page session so all clips made before reload sit in one list.
+    // ---------------------------------------------------------------
+    function pickRecMime() {
+      if (typeof MediaRecorder === "undefined") return null;
+      var mimes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4;codecs=mp4a.40.2",
+        "audio/mp4",
+        "audio/ogg;codecs=opus"
+      ];
+      for (var i = 0; i < mimes.length; i++) {
+        if (MediaRecorder.isTypeSupported(mimes[i])) return mimes[i];
+      }
+      return null;
+    }
+    function recExt(mime) {
+      if (!mime) return "webm";
+      if (mime.indexOf("mp4") >= 0) return "m4a";
+      if (mime.indexOf("ogg") >= 0) return "ogg";
+      return "webm";
+    }
+    function addDownload(blob, durationSec) {
+      var url = URL.createObjectURL(blob);
+      var stamp = new Date().toISOString().replace(/T/, "_").replace(/[:.]/g, "-").slice(0, 19);
+      var name = "sukumo-sonify_" + stamp + "." + recExt(recMime);
+      var slot = document.getElementById("rec-downloads");
+      if (!slot) return;
+      var row = document.createElement("div"); row.className = "rec-item";
+      var a = document.createElement("a"); a.href = url; a.download = name; a.textContent = name;
+      var meta = document.createElement("span"); meta.className = "rec-meta";
+      var kb = (blob.size / 1024).toFixed(0);
+      meta.textContent = "(" + durationSec.toFixed(1) + " s, " + kb + " KB)";
+      row.appendChild(a); row.appendChild(meta);
+      slot.appendChild(row);
+    }
+    function startRecording() {
+      if (!actx || !recDest) return false;
+      recMime = pickRecMime();
+      if (!recMime) return false;
+      recChunks = [];
+      try { recorder = new MediaRecorder(recDest.stream, { mimeType: recMime }); }
+      catch (err) { recorder = null; return false; }
+      recorder.ondataavailable = function (e) { if (e.data && e.data.size > 0) recChunks.push(e.data); };
+      recorder.onstop = function () {
+        var dur = (Date.now() - recStartMs) / 1000;
+        var blob = new Blob(recChunks, { type: recMime });
+        if (blob.size > 0) addDownload(blob, dur);
+        recorder = null;
+        var btn = document.getElementById("record");
+        if (btn) { btn.classList.remove("on"); btn.innerHTML = "&#9679; record"; }
+      };
+      recorder.start();
+      recStartMs = Date.now();
+      var btn = document.getElementById("record");
+      if (btn) { btn.classList.add("on"); btn.innerHTML = "&#9632; stop recording"; }
+      return true;
+    }
+    function stopRecording() {
+      if (recorder && recorder.state !== "inactive") {
+        try { recorder.stop(); } catch (err) { /* ignore */ }
+      }
     }
 
     // ---------------------------------------------------------------
@@ -263,7 +607,6 @@
       VatCloud.fetchReadings(READINGS_SHEET_ID).then(function (data) {
         if (data) {
           latestData = data;
-          diagram.setReadings(data.electrodes);
           P.temp = data.temp; P.ph = data.ph; P.orp = data.orp; P.do = data.do;
           setStatus("playing");
         } else {
@@ -324,18 +667,60 @@
     }
 
     // per-frame hook: set diagram targets (demo / idle) and drive audio + readouts
-    var lastAudioSec = -1, lastReadoutSec = -1;
+    // feed the diagram, masking muted nodes down to zero so they read as "off"
+    function applyReadings(elec) {
+      var masked = {};
+      VOICES.forEach(function (v) {
+        masked[v.key] = muted[v.key] ? ELEC_MIN : (elec ? elec[v.key] : null);
+      });
+      diagram.setReadings(masked);
+    }
+
+    // mute/unmute a node — fired from the colour key OR the diagram node
+    function toggleMute(key) {
+      muted[key] = !muted[key];
+      activeCount = 0;
+      VOICES.forEach(function (v) { if (!muted[v.key]) activeCount++; });
+      var leg = document.querySelector('#vat-legend .leg[data-k="' + key + '"]');
+      if (leg) leg.classList.toggle("off", muted[key]);
+      applyReadings(latestData ? latestData.electrodes : null);
+    }
+
+    var lastAudioSec = -1, lastReadoutSec = -1, prevSec = 0;
+    var melodyAccum = 4, melodyWait = 8;   // first note ~4 s after start
     function onFrame(viz, tSec) {
+      var dt = Math.min(0.1, tSec - prevSec); prevSec = tSec;
       if (demoMode) {
         var elec = demoElectrodes(tSec), dp = demoParams(tSec);
-        diagram.setReadings(elec);
         P.temp = dp.temp; P.ph = dp.ph; P.orp = dp.orp; P.do = dp.do;
         latestData = { timestamp_str: "demo", electrodes: elec,
                        temp: dp.temp, ph: dp.ph, orp: dp.orp, do: dp.do };
-      } else if (!running) {
+        applyReadings(elec);
+      } else if (running) {
+        applyReadings(latestData ? latestData.electrodes : null);
+      } else {
         diagram.setIdle();
       }
-      if (running && tSec - lastAudioSec >= 0.05) { updateAudio(viz); lastAudioSec = tSec; }
+      if (running) {
+        if (tSec - lastAudioSec >= 0.05) { updateAudio(viz); lastAudioSec = tSec; }
+        // event drops = the DO filter: rate = DO slider × DO reading × electrode level
+        var doScale = fx.do * (P.do != null ? map(P.do, 0, 8, 0.4, 1.6) : 1);
+        if (doScale > 0.001) {
+          VOICES.forEach(function (v) {
+            if (muted[v.key]) return;
+            var lvl = viz[v.key];
+            dropAccum[v.key] += dt * DROP_RATE * doScale * lvl * lvl;
+            if (dropAccum[v.key] >= 1) { dropAccum[v.key] -= 1; triggerDrop(v, lvl); }
+          });
+        }
+        // slow melodic counter-voice — one note every 7..13 s
+        melodyAccum += dt;
+        if (melodyAccum >= melodyWait) {
+          melodyAccum = 0;
+          melodyWait = 7 + Math.random() * 6;
+          playMelodyNote();
+        }
+      }
       if (tSec - lastReadoutSec >= 0.7) { updateReadout(); lastReadoutSec = tSec; }
     }
 
@@ -349,19 +734,15 @@
     function setStatus(text) {
       document.getElementById("status").textContent = text;
     }
-    function fmtVal(v, digits, unit) {
-      if (v === null || v === undefined || isNaN(v)) return "&ndash;";
-      return Number(v).toFixed(digits) + unit;
-    }
     function setHTML(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
     function updateReadout() {
-      // the slider shows intensity; this is just the live reading value
       var t = (!demoMode && latestData && latestData.timestamp_str) ? latestData.timestamp_str : "";
       setHTML("source-line", t ? "reading " + t : "");
-      setHTML("fv-temp", fmtVal(P.temp, 1, " &deg;C"));
-      setHTML("fv-ph", fmtVal(P.ph, 2, ""));
-      setHTML("fv-orp", fmtVal(P.orp, 0, " mV"));
-      setHTML("fv-do", fmtVal(P.do, 2, " mg/L"));
+      ["temp", "ph", "orp", "do"].forEach(function (k) {
+        var v = P[k];
+        setHTML("rd-" + k, (v === null || v === undefined || isNaN(v))
+          ? "&ndash;" : Number(v).toFixed(UNIT_DIGITS[k]));
+      });
       var e = (latestData && latestData.electrodes) || {};
       VOICES.forEach(function (v) {
         var val = e[v.key];
@@ -376,10 +757,13 @@
       if (running) return;
       buildGraph();
       actx.resume();
-      master.gain.linearRampToValueAtTime(0.5, actx.currentTime + MASTER_RAMP);
+      master.gain.linearRampToValueAtTime(0.42, actx.currentTime + MASTER_RAMP);
       running = true;
       if (!demoMode) { poll(); pollTimer = setInterval(poll, POLL_MS); }
       document.getElementById("toggle").innerHTML = "&#9632; stop sound";
+      // enable record button if MediaRecorder is supported and we have a tap
+      var rb = document.getElementById("record");
+      if (rb) rb.disabled = !(recDest && pickRecMime());
       setStatus(demoMode
         ? "demo playing (synthetic data)"
         : "playing");
@@ -388,15 +772,24 @@
     function stop() {
       if (!running) return;
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      // if we're recording, save the file first; recorder.onstop fires before
+      // the actx is closed below thanks to the 1 s timeout
+      if (recorder && recorder.state === "recording") stopRecording();
       if (master) master.gain.linearRampToValueAtTime(0.0, actx.currentTime + 0.5);
-      setTimeout(function () { if (actx) { actx.close(); actx = null; } }, 700);
+      setTimeout(function () { if (actx) { actx.close(); actx = null; recDest = null; } }, 1000);
       running = false;
       document.getElementById("toggle").innerHTML = "&#9654; start sound";
+      var rb = document.getElementById("record");
+      if (rb) { rb.disabled = true; rb.classList.remove("on"); rb.innerHTML = "&#9679; record"; }
       setStatus(demoMode ? "demo paused" : "stopped");
     }
 
     document.getElementById("toggle").addEventListener("click", function () {
       if (running) stop(); else start();
+    });
+    document.getElementById("record").addEventListener("click", function () {
+      if (recorder && recorder.state === "recording") stopRecording();
+      else startRecording();
     });
 
     function setupFilters() {
@@ -429,10 +822,13 @@
       VOICES.forEach(function (v) { byKey[v.key] = v; });
       el.innerHTML = order.map(function (k) {
         var v = byKey[k];
-        return '<span class="leg"><i style="background:' + v.col + '"></i>' + k +
-               ' &middot; ' + v.wire +
+        return '<span class="leg" data-k="' + k + '" title="click to mute / unmute">' +
+               '<i style="background:' + v.col + '"></i>' + k +
                '<span class="lv" id="lv-' + k + '">&ndash;</span></span>';
       }).join("");
+      Array.prototype.forEach.call(el.querySelectorAll(".leg"), function (span) {
+        span.addEventListener("click", function () { toggleMute(span.getAttribute("data-k")); });
+      });
     }
 
     // ---------------------------------------------------------------
@@ -442,7 +838,8 @@
     diagram = VatCloud.create(document.getElementById("vat-canvas"), {
       radiusFraction: 0.38,
       onFrame: onFrame,
-      overlay: drawFilterArcs
+      overlay: drawFilterArcs,
+      onNodeClick: toggleMute
     });
     buildLegend();
     setupFilters();

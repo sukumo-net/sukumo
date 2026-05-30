@@ -236,6 +236,21 @@
     var resizeTimer = null;
     window.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(layout, 150); });
 
+    // optional: clicking a node calls opts.onNodeClick(key)
+    if (opts.onNodeClick) {
+      canvas.style.cursor = "pointer";
+      canvas.addEventListener("click", function (e) {
+        var rect = canvas.getBoundingClientRect();
+        var x = e.clientX - rect.left, y = e.clientY - rect.top, best = null, bestD = 20 * 20;
+        VOICES.forEach(function (v) {
+          var p = elecXY[v.key]; if (!p) return;
+          var dx = x - p.x, dy = y - p.y, d2 = dx * dx + dy * dy;
+          if (d2 < bestD) { bestD = d2; best = v.key; }
+        });
+        if (best) opts.onNodeClick(best);
+      });
+    }
+
     layout();
     requestAnimationFrame(frame);
 
