@@ -182,8 +182,11 @@
         }
 
         var configured = SHEET_ID.indexOf('REPLACE_WITH') !== 0;
-        if (configured) tryLive();
-        else if (/[?&]demo\b/.test(location.search)) startReplay();
+        var demoOverride = /[?&]demo\b/.test(location.search);
+        // ?demo always wins (lets you replay history from sample-readings.json
+        // even after the live sheet is wired up). otherwise prefer live, then PNG.
+        if (demoOverride) startReplay();
+        else if (configured) tryLive();
         // else: not configured, no demo -> the e-ink PNG stays
       })();
     </script>
