@@ -43,20 +43,22 @@
     .filters-label { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 0.1rem; }
     /* a small two-column header so it's obvious the left value is the reading
        you can type into and the right control is the intensity mixer */
-    .filter-head { display: flex; align-items: baseline; gap: 0.6rem; font-size: 0.72rem;
+    /* widths in rem (not em) so the header columns are the same absolute width
+       as the row columns even though they use different font-sizes. gap matches. */
+    .filter-head { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.72rem;
                    text-transform: lowercase; letter-spacing: 0.06em; color: var(--ink-faint);
                    padding-bottom: 0.1rem; border-bottom: 1px dashed var(--ink-faint); }
-    .filter-head .h-name    { width: 13em; }
-    .filter-head .h-reading { width: 6.8em; }
-    .filter-head .h-plus    { width: 0.9em; text-align: center; }
+    .filter-head .h-name    { width: 11rem; }
+    .filter-head .h-reading { width: 5.8rem; }
+    .filter-head .h-plus    { width: 0.8rem; text-align: center; }
     .filter-head .h-intensity { flex: 1; }
     .filter-ctl { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
-    .filter-ctl > .ctl-name { width: 13em; text-transform: lowercase; letter-spacing: 0.04em;
+    .filter-ctl > .ctl-name { width: 11rem; text-transform: lowercase; letter-spacing: 0.04em;
                               color: var(--ink-soft); white-space: nowrap; }
     .ctl-name .ctl-target { color: var(--ink-faint); font-size: 0.78em; margin-left: 0.2em; }
-    .filter-ctl > .ctl-plus { width: 0.9em; text-align: center; color: var(--ink-faint); font-size: 0.9em; }
+    .filter-ctl > .ctl-plus { width: 0.8rem; text-align: center; color: var(--ink-faint); font-size: 0.9em; }
     /* the reading: live value display + unit to the right (read-only). */
-    .ctl-reading { width: 6.8em; display: inline-flex; align-items: baseline; gap: 0.25rem; }
+    .ctl-reading { width: 5.8rem; display: inline-flex; align-items: baseline; gap: 0.25rem; }
     .ctl-reading .rd {
       display: inline-block; width: 4em; text-align: right;
       color: var(--ink-soft); font-variant-numeric: tabular-nums;
@@ -85,26 +87,12 @@
     .vat-days a { margin-right: 0.55rem; white-space: nowrap; color: var(--ink-soft); }
     .vat-days a.active { font-weight: 700; color: var(--ink); }
     .vat-days a:hover { color: var(--indigo); }
-    /* replay-rate slider — matches the dotted-track + indigo-thumb look of the
-       filter sliders above. only relevant for archive replay. */
-    .replay-rate-ctl { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--ink-faint);
-                       display: inline-flex; align-items: center; gap: 0.5rem; }
-    .replay-rate-ctl input[type="range"] {
-      -webkit-appearance: none; appearance: none; width: 9em; height: 16px; cursor: pointer;
-      border: none; outline: none;
-      background: repeating-linear-gradient(to right, var(--ink-faint) 0 2px, transparent 2px 6px)
-                  no-repeat left center / 100% 2px;
-    }
-    .replay-rate-ctl input[type="range"]::-webkit-slider-runnable-track { background: transparent; height: 2px; border: none; }
-    .replay-rate-ctl input[type="range"]::-moz-range-track { background: transparent; height: 2px; border: none; }
-    .replay-rate-ctl input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none; appearance: none; width: 8px; height: 14px; margin-top: -6px;
-      background: var(--indigo); border: none; cursor: pointer;
-    }
-    .replay-rate-ctl input[type="range"]::-moz-range-thumb {
-      width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
-    }
-    .replay-rate-ctl input[type="range"]:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
+    /* replay-rate slider sits in the shape-the-sound block as its own row,
+       sharing column widths with the filter rows above. only relevant for
+       archive replay; hidden until the archive loads. */
+    .replay-rate-row { margin-top: 0.6rem; padding-top: 0.5rem;
+                       border-top: 1px dashed var(--ink-faint); color: var(--ink-soft); }
+    .replay-rate-row .ctl-reading { color: var(--ink-faint); }
   </style>
 </head>
 <body>
@@ -174,17 +162,18 @@
             <span class="ctl-plus">+</span>
             <input type="range" class="fx" data-f="do" min="0" max="100" value="0" aria-label="DO intensity">
           </div>
+          <div id="replay-rate-ctl" class="filter-ctl replay-rate-row" style="display:none">
+            <span class="ctl-name">replay speed</span>
+            <span class="ctl-reading"><span id="replay-rate-val">~10.6 s/day</span></span>
+            <span class="ctl-plus">&nbsp;</span>
+            <input type="range" class="fx" id="replay-rate" min="80" max="800" value="220" step="20" aria-label="replay rate">
+          </div>
         </div>
       </div>
     </div>
 
     <div id="vat-legend" class="vat-legend" aria-label="electrode key and live voltages"></div>
     <div id="vat-days" class="vat-days" aria-label="day archive" style="display:none"></div>
-    <div id="replay-rate-ctl" class="replay-rate-ctl" style="display:none">
-      replay speed
-      <input type="range" id="replay-rate" min="80" max="800" value="220" step="20" aria-label="replay rate">
-      <span id="replay-rate-val">~10.6 s/day</span>
-    </div>
 
   </main>
 
@@ -737,7 +726,7 @@
       });
       // unhide the speed slider now that the archive is interactive
       var rate = document.getElementById("replay-rate-ctl");
-      if (rate) rate.style.display = "inline-flex";
+      if (rate) rate.style.display = "flex";
     }
 
     // demo: smooth, slowly-evolving synthetic readings so the page is alive
@@ -946,7 +935,9 @@
     function setupFilters() {
       var box = document.getElementById("filters");
       if (!box) return;
-      var sliders = box.querySelectorAll("input.fx");
+      // grab only the per-filter intensity sliders, not the replay-rate slider
+      // (which lives in the same block but is wired separately further down)
+      var sliders = box.querySelectorAll("input.fx:not(#replay-rate)");
       for (var i = 0; i < sliders.length; i++) {
         (function (sl) {
           sl.style.setProperty("--p", sl.value + "%");   // initial track fill
