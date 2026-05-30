@@ -97,6 +97,7 @@
         var live = document.getElementById('dash-live');
         var diagram = null, pollTimer = null, replayTimer = null;
         var archive = null, archiveIdx = null, currentDayI = -1;   // -1 = live mode
+        var lastTimestamp = null, freshnessTimer = null;           // "X min ago" ticker
 
         function vatDay(dateStr) {
           var ms = new Date((dateStr || '') + 'T00:00:00').getTime() - new Date(START_DATE + 'T00:00:00').getTime();
@@ -107,6 +108,25 @@
         }
         function fmt(v, d, u) { return (v == null || isNaN(v)) ? '&ndash;' : Number(v).toFixed(d) + (u || ''); }
         function set(id, html) { var e = document.getElementById(id); if (e) e.innerHTML = html; }
+        // "X min ago" from a "YYYY-MM-DD HH:MM" timestamp. parsed as local time
+        // (matches the Pi's clock, which logs in vat-local time).
+        function timeAgo(tsStr) {
+          if (!tsStr) return '';
+          var t = new Date(tsStr.replace(' ', 'T'));
+          if (isNaN(t.getTime())) return '';
+          var s = Math.floor((Date.now() - t.getTime()) / 1000);
+          if (s < 30) return 'just now';
+          if (s < 60) return s + ' s ago';
+          if (s < 3600) return Math.floor(s / 60) + ' min ago';
+          if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+          return Math.floor(s / 86400) + ' d ago';
+        }
+        // refresh the "updated … · X min ago" line. only meaningful in live mode;
+        // replay mode owns d-updated for its own status (day · HH:MM).
+        function refreshUpdatedLine() {
+          if (currentDayI !== -1 || !lastTimestamp) return;
+          set('d-updated', 'updated ' + lastTimestamp + ' &middot; ' + timeAgo(lastTimestamp));
+        }
 
         function orpBar(orp) {
           var lo = -700, hi = 0;
@@ -136,7 +156,9 @@
             if (!reading) return;  // keep PNG / replay / whatever was showing
             showLive(reading);
             set('d-day', todayVatDay());
-            set('d-updated', reading.timestamp_str ? ('updated ' + reading.timestamp_str) : '');
+            lastTimestamp = reading.timestamp_str || null;
+            refreshUpdatedLine();
+            if (!freshnessTimer) freshnessTimer = setInterval(refreshUpdatedLine, 60000);
           });
         }
         function goLive() {
@@ -172,14 +194,15 @@
           replayTimer = setInterval(step, 550);
         }
 
-        // the day-bar — "live" + every archived day. always visible once the
-        // archive is loaded; clicking switches modes.
+        // the day-bar — "archive: live 1 2 …". always visible once the archive
+        // is loaded; clicking switches modes.
         function renderDayBar() {
           var el = document.getElementById('dash-days');
           if (!el || !archive) return;
           el.style.display = 'block';
           var liveCls = currentDayI === -1 ? ' active' : '';
-          var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
+          var parts = ['<span class="muted">archive:</span>',
+                       '<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
           archive.days.forEach(function (d, i) {
             var cls = (i === currentDayI ? ' active' : '');
             parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');

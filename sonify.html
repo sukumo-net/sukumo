@@ -79,11 +79,16 @@
       width: 8px; height: 14px; background: var(--indigo); border: none; border-radius: 0; cursor: pointer;
     }
     input[type="range"].fx:focus { outline: 2px solid var(--indigo); outline-offset: 2px; }
-    /* day archive — "live" + each historical day. clicking switches modes. */
+    /* day archive — "archive: live 1 2 …". clicking switches modes. */
     .vat-days { margin: 1rem 0 0; font-size: 0.85rem; color: var(--ink-soft); }
     .vat-days a { margin-right: 0.55rem; white-space: nowrap; color: var(--ink-soft); }
     .vat-days a.active { font-weight: 700; color: var(--ink); }
     .vat-days a:hover { color: var(--indigo); }
+    /* replay-rate slider — only relevant for archive replay; hidden until the
+       archive has loaded. compresses or stretches a full day's audio loop. */
+    .replay-rate-ctl { margin: 0.4rem 0 0; font-size: 0.78rem; color: var(--ink-faint);
+                       display: inline-flex; align-items: center; gap: 0.5rem; }
+    .replay-rate-ctl input[type="range"] { width: 9em; height: 16px; }
   </style>
 </head>
 <body>
@@ -159,6 +164,11 @@
 
     <div id="vat-legend" class="vat-legend" aria-label="electrode key and live voltages"></div>
     <div id="vat-days" class="vat-days" aria-label="day archive" style="display:none"></div>
+    <div id="replay-rate-ctl" class="replay-rate-ctl" style="display:none">
+      replay speed
+      <input type="range" id="replay-rate" min="80" max="800" value="220" step="20" aria-label="replay rate">
+      <span id="replay-rate-val">~10.6 s/day</span>
+    </div>
 
   </main>
 
@@ -270,8 +280,8 @@
     var START_DATE = "2026-05-12";   // vat day 1
     var archive = null, archiveIdx = null;
     var currentDayI = -1;            // -1 = live; otherwise index into archive.days
-    var replayTimer = null, replayRowI = 0;
-    var REPLAY_STEP_MS = 220;        // ~10 s per 48-row day, looping
+    var replayTimer = null, replayRowI = 0, replayStepFn = null;
+    var REPLAY_STEP_MS = 220;        // ~10 s per 48-row day, looping (slider-tunable)
     function vatDay(dateStr) {
       var ms = new Date((dateStr || "") + "T00:00:00").getTime()
              - new Date(START_DATE + "T00:00:00").getTime();
@@ -634,17 +644,29 @@
       replayRowI = 0;
       renderDayBar();
       var day = archive.days[idx];
-      function step() {
+      // store the step fn at module scope so the rate slider can swap intervals
+      // without losing the current row position
+      replayStepFn = function step() {
         var row = day.rows[replayRowI];
         var r = archiveRowToLatest(row, day.date);
         latestData = r;
         P.temp = r.temp; P.ph = r.ph; P.orp = r.orp; P.do = r.do;
         replayRowI = (replayRowI + 1) % day.rows.length;
-      }
-      step();
-      replayTimer = setInterval(step, REPLAY_STEP_MS);
+      };
+      replayStepFn();
+      replayTimer = setInterval(replayStepFn, REPLAY_STEP_MS);
       setStatus(running ? "replaying day " + vatDay(day.date)
                         : "previewing day " + vatDay(day.date) + " — press play for sound");
+    }
+    // slider: live-update the replay interval; preserves the current row
+    function setReplayRate(ms) {
+      REPLAY_STEP_MS = ms;
+      var el = document.getElementById("replay-rate-val");
+      if (el) el.textContent = "~" + ((ms * 48) / 1000).toFixed(1) + " s/day";
+      if (replayTimer && replayStepFn) {
+        clearInterval(replayTimer);
+        replayTimer = setInterval(replayStepFn, REPLAY_STEP_MS);
+      }
     }
     function goLive() {
       if (replayTimer) { clearInterval(replayTimer); replayTimer = null; }
@@ -662,7 +684,8 @@
       if (!el || !archive) return;
       el.style.display = "block";
       var liveCls = currentDayI === -1 ? " active" : "";
-      var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
+      var parts = ['<span class="muted">archive:</span>',
+                   '<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>'];
       archive.days.forEach(function (d, i) {
         var cls = (i === currentDayI ? " active" : "");
         parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');
@@ -675,6 +698,9 @@
           if (v === "live") goLive(); else replayDay(+v);
         });
       });
+      // unhide the speed slider now that the archive is interactive
+      var rate = document.getElementById("replay-rate-ctl");
+      if (rate) rate.style.display = "inline-flex";
     }
 
     // demo: smooth, slowly-evolving synthetic readings so the page is alive
@@ -940,6 +966,14 @@
         renderDayBar();
       })
       .catch(function () { /* archive missing — bar stays hidden */ });
+
+    // wire the replay-rate slider (live, even before the user picks a day)
+    var rateSlider = document.getElementById("replay-rate");
+    if (rateSlider) {
+      rateSlider.addEventListener("input", function () {
+        setReplayRate(parseInt(rateSlider.value, 10) || REPLAY_STEP_MS);
+      });
+    }
     setStatus(demoMode
       ? "demo — press play to hear it (no live sheet configured yet)"
       : "stopped");
