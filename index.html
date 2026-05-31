@@ -259,8 +259,7 @@
 
     <section class="explainer">
       <h2>// the diagram</h2>
-      <p>a top-down view of the vat. each electrode is a coloured dot. surface electrodes sit on the outer ring, middle on the next ring in, bottom on the innermost. N/S/E/W match the vat walls.</p>
-      <p>around each dot, a speckled cloud grows with the electrode's reading. where clouds overlap, colours mix. the grainy texture comes from 1-bit dithering, which matches the e-ink panel this view replaces.</p>
+      <p>a top-down view of the vat. each electrode is a coloured dot. surface electrodes sit on the outer ring, middle on the next ring in, bottom on the innermost. N/S/E/W match the vat walls. around each dot, a speckled cloud grows with the electrode's reading.</p>
       <p>each pixel's density is the sum across all electrodes, weighted by reading:</p>
       <pre>w_k(p) = exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_c&sup2;) + 0.6 &middot; exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_h&sup2;)
 where &sigma;_c &asymp; 0.13 &middot; R  and  &sigma;_h &asymp; 0.40 &middot; R
