@@ -593,7 +593,7 @@
       drive.href = DRIVE_INCOMING_URL; drive.target = "_blank"; drive.rel = "noopener";
       drive.className = "rec-drive";
       drive.innerHTML = "upload to drive";
-      drive.title = "open the project's incoming Drive folder — drag the downloaded file in";
+      drive.title = "open the project's incoming Drive folder. drag the downloaded file in.";
       row.appendChild(a); row.appendChild(meta); row.appendChild(drive);
       slot.appendChild(row);
     }
@@ -642,7 +642,7 @@
           P.temp = data.temp; P.ph = data.ph; P.orp = data.orp; P.do = data.do;
           setStatus("playing");
         } else {
-          setStatus("playing (no data yet — waiting for the pi to publish)");
+          setStatus("playing (no data yet, waiting for the pi to publish)");
         }
       });
     }
@@ -682,7 +682,7 @@
       replayStepFn();
       replayTimer = setInterval(replayStepFn, REPLAY_STEP_MS);
       setStatus(running ? "replaying day " + vatDay(day.date)
-                        : "previewing day " + vatDay(day.date) + " — press play for sound");
+                        : "previewing day " + vatDay(day.date) + " (press play for sound)");
     }
     // slider: live-update the replay interval; preserves the current row
     function setReplayRate(ms) {
@@ -702,7 +702,7 @@
         if (!pollTimer) { poll(); pollTimer = setInterval(poll, POLL_MS); }
         setStatus("playing");
       } else if (!running) {
-        setStatus(demoMode ? "demo — press play to hear it" : "stopped");
+        setStatus(demoMode ? "demo (press play to hear it)" : "stopped");
       }
     }
     function renderDayBar() {
@@ -906,7 +906,7 @@
       setStatus(
         demoMode ? "demo paused"
         : (currentDayI !== -1
-            ? "previewing day " + vatDay(archive.days[currentDayI].date) + " — press play for sound"
+            ? "previewing day " + vatDay(archive.days[currentDayI].date) + " (press play for sound)"
             : "stopped")
       );
     }
@@ -1014,7 +1014,7 @@
       });
     }
     setStatus(demoMode
-      ? "demo — press play to hear it (no live sheet configured yet)"
+      ? "demo (press play to hear it; no live sheet configured yet)"
       : "stopped");
   })();
   </script>

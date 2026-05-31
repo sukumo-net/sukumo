@@ -46,7 +46,7 @@
   <main id="top">
 
     <h1>sukumo vat monitor</h1>
-    <p>a fermenting indigo vat at bioclub tokyo, instrumented with a raspberry pi. an experiment in multispecies attention: temperature, electrode voltages, ph, orp, dissolved oxygen, all logged continuously. the pi runs offline at the lab and syncs to drive periodically when carried within reach of a network.</p>
+    <p>a fermenting indigo vat at bioclub tokyo, monitored by a raspberry pi. an experiment in multispecies attention: temperature, electrode voltages, ph, orp, and dissolved oxygen are logged continuously. the pi runs offline at the lab and syncs to drive when brought within wifi range.</p>
 
     <!-- ============================================================ -->
     <!-- DASHBOARD                                                     -->
@@ -241,7 +241,7 @@
       <h2>// what's being measured</h2>
       <dl>
         <dt>temperature</dt>
-        <dd>vat liquid temperature in &deg;C, read continuously from a DS18B20 probe at mid-depth. lab studies hold sukumo fermentation at ~26&ndash;30&deg;C (30 &plusmn; 1&deg;C in <a href="https://doi.org/10.1111/j.1574-6941.2010.00946.x" target="_blank">Aino et al., 2010</a>; 26&deg;C in <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>), and the traditional recipe (below) calls for above 30&deg;C during early fermentation.</dd>
+        <dd>vat liquid temperature in &deg;C, read continuously from a DS18B20 probe at mid-depth. lab studies hold sukumo fermentation at ~26&ndash;30&deg;C (30 &plusmn; 1&deg;C in <a href="https://doi.org/10.1111/j.1574-6941.2010.00946.x" target="_blank">Aino et al., 2010</a>; 26&deg;C in <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>). the traditional recipe (below) calls for above 30&deg;C during early fermentation.</dd>
 
         <dt>electrodes (surface / mid / bottom)</dt>
         <dd>voltage from carbon paper strips on the vat wall at three depths. shifts with the vat's chemistry. 4 at surface (N/S/E/W), 2 at mid (N/S), 2 at bottom (N/S). read continuously against a shared reference.</dd>
@@ -270,7 +270,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
       <p>the colour of each inked pixel is a distance-weighted average of nearby wire colours: &sum;_k w_k &middot; c_k / &sum;_k w_k.</p>
 
       <h2>// orp target</h2>
-      <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. indigo dyes only in its reduced, water-soluble (leuco) form and reverts to insoluble blue once reoxidised (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0013468602000282" target="_blank">Roessler et al., 2002</a>). in sukumo fermentation, reduction begins as ORP falls to about &minus;500 mV, and the indigo-reducing bacteria operate below &minus;600 mV (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>); the bar marks &minus;600 mV as its reference and the pointer turns red above &minus;550 mV.</p>
+      <p>the bar under the manual readings places the latest ORP between &minus;700 and 0 mV. indigo dyes only in its reduced, water-soluble (leuco) form and reverts to insoluble blue once reoxidised (<a href="https://www.sciencedirect.com/science/article/abs/pii/S0013468602000282" target="_blank">Roessler et al., 2002</a>). in sukumo fermentation, reduction begins as ORP falls to about &minus;500 mV, and the indigo-reducing bacteria operate below &minus;600 mV (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9395713/" target="_blank">Lopes et al., 2022</a>). the bar marks &minus;600 mV as its reference. the pointer turns red above &minus;550 mV.</p>
     </section>
 
     <!-- ============================================================ -->
@@ -377,29 +377,29 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
       <h3>ingredients</h3>
       <ul>
         <li>3 kg fermented indigo leaves (sukumo)</li>
-        <li>3 kg wood ash &mdash; burn the wood, then leave the ash to sit with water for 1 day (prepare the day before)</li>
+        <li>3 kg wood ash (burn the wood, then leave the ash to sit with water for 1 day; prepare the day before)</li>
         <li>1 kg shell ash (same amount as wood ash)</li>
         <li>100 g wheat bran</li>
         <li>lye made from wood ash, up to 5L (about 500g ash)</li>
       </ul>
 
-      <h3>day 1 &mdash; up to 5L</h3>
+      <h3>day 1 (up to 5L)</h3>
       <ol>
         <li>place 3 kg sukumo into the 30L jar.</li>
         <li>heat 5 L of lye (made from wood ash) to 80&deg;C.</li>
         <li>pour the warm lye into the jar and stir vigorously with a wooden stick for 5 minutes.</li>
-        <li>stir again in the evening. keep the mixture warm &mdash; temperature must stay above 30&deg;C. if cold, use an electric blanket.</li>
+        <li>stir again in the evening. keep the mixture warm. temperature must stay above 30&deg;C. if cold, use an electric blanket.</li>
       </ol>
       <p class="muted">temperature control is critical at this stage.</p>
 
-      <h3>day 2 &mdash; up to 14L</h3>
+      <h3>day 2 (up to 14L)</h3>
       <ol>
         <li>repeat the day 1 process in the morning.</li>
         <li>carefully add more ash, making sure no air gets into the liquid.</li>
         <li>stir again in the evening.</li>
       </ol>
 
-      <h3>day 3 &mdash; add 3L (total ~14L)</h3>
+      <h3>day 3 (add 3L, total ~14L)</h3>
       <ol>
         <li>heat 4 L of lye to about 35&deg;C.</li>
         <li>carefully add the warmed lye to the jar.</li>
@@ -412,13 +412,13 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
         <li>check for flower (bloom). if visible, proceed to day 5.</li>
       </ol>
 
-      <h3>day 5 &mdash; add remaining lye (total ~18L, then to ~28L)</h3>
+      <h3>day 5 (add remaining lye, total ~18L, then to ~28L)</h3>
       <ol>
         <li>repeat the day 3 process.</li>
         <li>a rainbow-coloured film should appear on the surface. if not, stir again.</li>
       </ol>
 
-      <h3>day 6 &mdash; up to 22L</h3>
+      <h3>day 6 (up to 22L)</h3>
       <ol>
         <li>repeat the day 3 process.</li>
         <li>the rainbow-coloured film should still appear on the surface. if not visible, stir again.</li>
@@ -437,7 +437,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
 
       <h2>// care</h2>
       <ul>
-        <li>during dyeing, avoid letting too much air enter the solution &mdash; this weakens the microorganisms and prevents the dye from developing its colour.</li>
+        <li>during dyeing, avoid letting too much air enter the solution. air weakens the microorganisms and prevents the dye from developing its colour.</li>
         <li>regularly check the pH. if too low, adjust by adding more shell ash.</li>
         <li>if colour still doesn't develop after adjusting pH: heat 500&ndash;1000 ml of lye and maltose in a saucepan until dissolved. allow to cool to ~40&deg;C, then add to the indigo solution and stir.</li>
         <li>remove the bloom by hand before dyeing.</li>
@@ -448,7 +448,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
     <!-- BUILD / SONIFICATION                                          -->
     <!-- ============================================================ -->
     <h2 id="build">// build</h2>
-    <p>using the vat data in your own work: sound, visuals, anything. two paths &mdash; the public archive (csv, anywhere, any time) and the live OSC stream (lab-only, while the pi is powered up).</p>
+    <p>using the vat data in your own work: sound, visuals, anything. two ways in: the public archive (csv, anywhere, any time), or the live OSC stream (lab-only, while the pi is powered up).</p>
 
     <h3>hear it now</h3>
     <p>a browser sonification turns the readings into a 3D chord. temperature, pH, ORP and DO each blend in a filter. click to mute, slide to shape, record to save. polls the pi's sheet; demo data until that's wired up.</p>
@@ -480,7 +480,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
     </ol>
 
     <h3>receiving live OSC (in the lab)</h3>
-    <p>the pi sits behind a small travel router (gl.inet "mango") in the lab. the router broadcasts a wifi network called <code>sukumo-net</code>; the pi is reachable at <code>192.168.8.220</code> on that network. live OSC works whenever the pi is powered up &mdash; no internet required, just the local <code>sukumo-net</code> wifi.</p>
+    <p>the pi sits behind a travel router (gl.inet "mango") in the lab. the router broadcasts a wifi network called <code>sukumo-net</code>, and the pi is reachable at <code>192.168.8.220</code> on that network. live OSC works whenever the pi is powered up. no internet required.</p>
     <ol class="tutorial">
       <li>
         <strong>join the <code>sukumo-net</code> wifi.</strong>
@@ -488,7 +488,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
       </li>
       <li>
         <strong>verify you can reach the pi.</strong>
-        <p>open <a href="http://192.168.8.220:8080/api/latest" target="_blank"><code>http://192.168.8.220:8080/api/latest</code></a> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, you're not on <code>sukumo-net</code> &mdash; go back to step 1.</p>
+        <p>open <a href="http://192.168.8.220:8080/api/latest" target="_blank"><code>http://192.168.8.220:8080/api/latest</code></a> in a browser. if you see JSON with current readings, you're on the right network. if it doesn't load, you're not on <code>sukumo-net</code>. go back to step 1.</p>
       </li>
       <li>
         <strong>pick a tool.</strong>
