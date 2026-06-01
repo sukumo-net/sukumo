@@ -305,7 +305,7 @@
     var actx = null, master = null, voices = [],
         lowpass = null, dryGain = null, wetGain = null, subGain = null,
         tremGain = null, tremDepth = null, tremLFO = null,
-        tempDrive = null, recDest = null,
+        tempDrive = null, recDest = null, dropBus = null,
         running = false, pollTimer = null, lastAudio = 0;
     // recording state — captures master output to a downloadable audio file
     var recorder = null, recChunks = [], recMime = null, recStartMs = 0, recDurationTimer = null;
@@ -388,6 +388,11 @@
       tremGain.connect(shaper); shaper.connect(lowpass);
       lowpass.connect(dryGain); lowpass.connect(reverb); reverb.connect(wetGain);
       dryGain.connect(actx.destination); wetGain.connect(actx.destination);
+      // drops bypass the master chain (no lowpass, no saturation, no tremolo)
+      // so they stay sparkly and don't get masked when temp / pH / sub are up.
+      // they DO still feed dry + reverb, so ORP still places them in the room.
+      dropBus = actx.createGain(); dropBus.gain.value = 1.0;
+      dropBus.connect(dryGain); dropBus.connect(reverb);
       // recording tap — same dry+wet sum as the speakers, captured via MediaStream.
       // only created if MediaRecorder is available; nothing is recorded until the
       // user clicks "record".
@@ -541,7 +546,7 @@
       var o = actx.createOscillator(); o.type = "sine";
       o.frequency.value = Math.max(260, ROOT_HZ * scaleRatio(v.key) * 2);
       var g = actx.createGain();
-      var peak = 0.038 + 0.09 * level;
+      var peak = 0.12 + 0.25 * level;   // boosted so drops cut through other filters
       g.gain.setValueAtTime(0, now);
       g.gain.linearRampToValueAtTime(peak, now + 0.010);
       g.gain.exponentialRampToValueAtTime(0.0005, now + DROP_DECAY);
@@ -550,7 +555,9 @@
       var x = v.pos[0] * POS_RADIUS, y = v.pos[1] * POS_RADIUS, z = v.pos[2] * POS_RADIUS;
       if (pan.positionX) { pan.positionX.value = x; pan.positionY.value = y; pan.positionZ.value = z; }
       else if (pan.setPosition) { pan.setPosition(x, y, z); }
-      o.connect(g); g.connect(pan); pan.connect(master);
+      // route to dropBus, not master, so the lowpass / saturation / tremolo
+      // don't touch them. they still hit ORP's dry/wet split.
+      o.connect(g); g.connect(pan); pan.connect(dropBus);
       o.start(now); o.stop(now + DROP_DECAY + 0.1);
     }
 
