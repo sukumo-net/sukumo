@@ -46,7 +46,7 @@
   <main id="top">
 
     <h1>sukumo vat monitor</h1>
-    <p>a fermenting indigo vat at bioclub tokyo, monitored by a raspberry pi. an experiment in multispecies attention: temperature, electrode voltages, ph, orp, and dissolved oxygen are logged continuously. the pi runs offline at the lab and syncs to drive when brought within wifi range.</p>
+    <p>a fermenting indigo vat at bioclub tokyo, monitored by a raspberry pi. an experiment in multispecies attention: temperature, electrode voltages, ph, orp, and dissolved oxygen are logged continuously. the pi publishes the latest reading to a public google sheet every 30 minutes, and archives each day's full csv to drive.</p>
 
     <!-- ============================================================ -->
     <!-- DASHBOARD                                                     -->
@@ -259,7 +259,7 @@
 
     <section class="explainer">
       <h2>// the diagram</h2>
-      <p>a top-down view of the vat. each electrode is a coloured dot. surface electrodes sit on the outer ring, middle on the next ring in, bottom on the innermost. N/S/E/W match the vat walls. around each dot, a speckled cloud grows with the electrode's reading.</p>
+      <p>a top-down view of the vat. each electrode is a coloured dot. surface electrodes sit on the outer ring, middle on the next ring in, bottom on the innermost. N/S/E/W match the vat walls. around each dot, a speckled cloud grows or shrinks with the electrode's reading. larger readings produce larger clouds, mapped linearly from &minus;0.5 V (smallest) to +0.5 V (largest); readings outside that range are clipped.</p>
       <p>each pixel's density is the sum across all electrodes, weighted by reading:</p>
       <pre>w_k(p) = exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_c&sup2;) + 0.6 &middot; exp(&minus;|p &minus; e_k|&sup2; / 2&sigma;_h&sup2;)
 where &sigma;_c &asymp; 0.13 &middot; R  and  &sigma;_h &asymp; 0.40 &middot; R
@@ -451,7 +451,7 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
     <p>using the vat data in your own work: sound, visuals, anything. two ways in: the public archive (csv, anywhere, any time), or the live OSC stream (lab-only, while the pi is powered up).</p>
 
     <h3>hear it now</h3>
-    <p>a browser sonification turns the readings into a 3D chord. temperature, pH, ORP and DO each blend in a filter. click to mute, slide to shape, record to save. polls the pi's sheet; demo data until that's wired up.</p>
+    <p>a browser sonification turns the readings into a 3D chord. temperature, pH, ORP and DO each blend in a filter. click to mute, slide to shape, record to save. polls the pi's sheet every 3 minutes; on sukumo-net, the pi serves a faster realtime version.</p>
     <p><a href="sonify.html">open the sonification &rarr;</a></p>
 
     <h3>working from the archive</h3>
