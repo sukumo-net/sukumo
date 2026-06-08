@@ -220,7 +220,7 @@
         // boot: load archive (for the day picker), then pick the initial mode
         var configured = SHEET_ID.indexOf('REPLACE_WITH') !== 0;
         var demoOverride = /[?&]demo\b/.test(location.search);
-        fetch('sample-readings.json', { cache: 'no-store' })
+        fetch('sample-readings.json?t=' + Date.now(), { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : null; })
           .then(function (data) {
             if (data && data.days && data.days.length) {

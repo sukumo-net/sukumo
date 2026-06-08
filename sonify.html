@@ -1003,7 +1003,7 @@
     // load the bundled day archive in the background — once it's in, the
     // day-bar appears under the legend and clicking any day starts a fast
     // looped replay.
-    fetch("sample-readings.json", { cache: "no-store" })
+    fetch("sample-readings.json?t=" + Date.now(), { cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || !data.days || !data.days.length) return;
