@@ -76,11 +76,19 @@
       var v = parseFloat(row[idx]);
       return isNaN(v) ? null : v;
     }
-    var tsIdx = header.indexOf("timestamp");
+    function colStr(name) {
+      var idx = header.indexOf(name);
+      return (idx >= 0 && idx < row.length) ? row[idx] : "";
+    }
     var elec = {};
     VOICES.forEach(function (v) { elec[v.key] = col(v.key); });
     return {
-      timestamp_str: (tsIdx >= 0 && tsIdx < row.length) ? row[tsIdx] : "",
+      timestamp_str: colStr("timestamp"),
+      // when the latest manual ph/orp/do reading was taken — usually hours or
+      // days behind the auto-snapshot above; the dashboard renders a "3d" /
+      // "5h" badge from this. empty string when the column is missing or
+      // the Pi has no manual reading recorded.
+      manual_ts: colStr("manual_timestamp"),
       electrodes: elec,
       temp: col("temperature_c"), ph: col("ph"), orp: col("orp_mv"), do: col("do_mg_l")
     };

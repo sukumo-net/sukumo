@@ -20,6 +20,8 @@
     .dash-vals { display: grid; grid-template-columns: max-content 1fr; column-gap: 1rem; row-gap: 0.32rem; margin: 0; font-size: 1rem; }
     .dash-vals dt { color: var(--ink-soft); }
     .dash-vals dd { margin: 0; font-variant-numeric: tabular-nums; }
+    /* "4d" / "3h" / "12m" staleness badge after manual ph / orp / do values */
+    .manual-age { color: var(--ink-soft); font-size: 0.75em; margin-left: 0.4em; font-variant-numeric: tabular-nums; }
     .orp-bar { position: relative; height: 6px; background: var(--paper-tint); border: 1px solid var(--rule); margin: 0.8rem 0 0.3rem; }
     .orp-bar .tick { position: absolute; top: -2px; bottom: -2px; width: 1px; background: var(--ink); }
     .orp-bar .ptr { position: absolute; top: -4px; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid var(--indigo); margin-left: -4px; }
@@ -121,6 +123,22 @@
           if (s < 86400) return Math.floor(s / 3600) + ' h ago';
           return Math.floor(s / 86400) + ' d ago';
         }
+        // compact age badge ("4d" / "3h" / "12m" / "now") for the manual ph /
+        // orp / do values. they typically lag the auto-reading by hours-to-days
+        // since they require a human visit with the whitebox.
+        function manualAge(tsStr) {
+          if (!tsStr) return '';
+          var t = new Date(tsStr.replace(' ', 'T'));
+          if (isNaN(t.getTime())) return '';
+          var s = Math.floor((Date.now() - t.getTime()) / 1000);
+          if (s < 60) return 'now';
+          if (s < 3600) return Math.floor(s / 60) + 'm';
+          if (s < 86400) return Math.floor(s / 3600) + 'h';
+          return Math.floor(s / 86400) + 'd';
+        }
+        function withAge(valHTML, ageStr) {
+          return valHTML + (ageStr ? ' <small class="manual-age">' + ageStr + '</small>' : '');
+        }
         // refresh the "updated … · X min ago" line. only meaningful in live mode;
         // replay mode owns d-updated for its own status (day · HH:MM).
         function refreshUpdatedLine() {
@@ -144,9 +162,13 @@
           diagram.setReadings(reading.electrodes);
           set('d-temp', fmt(reading.temp, 1, ' &deg;C'));
           VatCloud.VOICES.forEach(function (v) { set('d-' + v.key, fmt(reading.electrodes[v.key], 3, 'V')); });
-          set('d-ph', fmt(reading.ph, 2, ''));
-          set('d-orp', fmt(reading.orp, 0, ' mV'));
-          set('d-do', fmt(reading.do, 2, ' mg/L'));
+          // append a staleness badge ("4d" / "3h" / "12m") next to each manual
+          // value when the sheet includes a manual_timestamp column. silently
+          // omitted if the column is absent (older sheet schema).
+          var age = manualAge(reading.manual_ts);
+          set('d-ph',  withAge(fmt(reading.ph,  2, ''),      age));
+          set('d-orp', withAge(fmt(reading.orp, 0, ' mV'),   age));
+          set('d-do',  withAge(fmt(reading.do,  2, ' mg/L'), age));
           orpBar(reading.orp);
         }
 
