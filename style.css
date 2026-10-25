@@ -297,6 +297,44 @@ dl.protocol dd { margin: 0; color: var(--ink-soft); }
 
 .prereq strong { color: var(--indigo); }
 
+/* ----- contribute band (prominent CTA block above the fold) ----- */
+
+.contribute-band {
+  background: var(--paper-tint);
+  border: 1px solid var(--rule);
+  border-top: 4px solid var(--indigo);
+  padding: 1rem 1.2rem 0.4rem;
+  margin: 2rem 0 2.5rem;
+}
+
+.contribute-band > h2 {
+  margin-top: 0;
+}
+
+/* The cards inside the band get a solid paper background so they
+   contrast against the tinted band. */
+.contribute-band .card {
+  background: var(--paper);
+}
+
+/* CTA links inside the contribute band — small outlined "button" look
+   so the primary actions read as actions, not just text links. */
+.cta {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--indigo);
+  color: var(--indigo);
+  background: var(--paper);
+  text-decoration: none;
+  font-weight: bold;
+  margin-top: 0.2rem;
+}
+
+.cta:hover {
+  background: var(--indigo);
+  color: var(--paper);
+}
+
 /* ----- tables ----- */
 
 table {
