@@ -217,22 +217,40 @@
         }
 
         // the day-bar — "archive: live 1 2 …". always visible once the archive
-        // is loaded; clicking switches modes.
+        // is loaded; clicking switches modes. collapses to live + last RECENT_N
+        // days by default, with a "+N earlier" link that expands/collapses.
+        var RECENT_N = 14;
+        var dayBarExpanded = false;
         function renderDayBar() {
           var el = document.getElementById('dash-days');
           if (!el || !archive) return;
           el.style.display = 'block';
           var liveCls = currentDayI === -1 ? ' active' : '';
+          var total = archive.days.length;
+          // If the current replay target is in the collapsed-older section,
+          // auto-expand so the active link is visible.
+          if (currentDayI !== -1 && currentDayI < total - RECENT_N) {
+            dayBarExpanded = true;
+          }
+          var startIdx = (dayBarExpanded || total <= RECENT_N) ? 0 : total - RECENT_N;
           var parts = ['<a href="#" data-i="live" class="day-link' + liveCls + '">live</a>',
                        '<span class="muted">archive:</span>'];
-          archive.days.forEach(function (d, i) {
+          if (!dayBarExpanded && startIdx > 0) {
+            parts.push('<a href="#" data-toggle="expand" class="day-link muted">+' + startIdx + ' earlier</a>');
+          }
+          for (var i = startIdx; i < total; i++) {
             var cls = (i === currentDayI ? ' active' : '');
-            parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(d.date) + '</a>');
-          });
+            parts.push('<a href="#" data-i="' + i + '" class="day-link' + cls + '">' + vatDay(archive.days[i].date) + '</a>');
+          }
+          if (dayBarExpanded && total > RECENT_N) {
+            parts.push('<a href="#" data-toggle="collapse" class="day-link muted">&larr; fewer</a>');
+          }
           el.innerHTML = parts.join(' ');
           Array.prototype.forEach.call(el.querySelectorAll('.day-link'), function (a) {
             a.addEventListener('click', function (e) {
               e.preventDefault();
+              var toggle = a.getAttribute('data-toggle');
+              if (toggle) { dayBarExpanded = (toggle === 'expand'); renderDayBar(); return; }
               var v = a.getAttribute('data-i');
               if (v === 'live') goLive(); else replayDay(+v);
             });
@@ -258,6 +276,33 @@
           });
       })();
     </script>
+
+    <!-- ============================================================ -->
+    <!-- CONTRIBUTE (form / sheet / drive) — surfaced right after      -->
+    <!-- the dashboard so the first scroll lands on a call to action.  -->
+    <!-- ============================================================ -->
+    <h2 id="contribute">// contribute</h2>
+    <p>each interaction with the vat (manual reading, stir, feed, observation, creative session) gets one diary entry. anyone can submit anonymously.</p>
+
+    <p class="prereq"><strong>before your first contribution:</strong> <a href="https://form.jotform.com/261258893162060" target="_blank">sign participant consent form &rarr;</a></p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>submit an entry</h2>
+        <p>log a manual reading, stir, feed, or observation.</p>
+        <p><a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">open form &rarr;</a></p>
+      </div>
+      <div class="card">
+        <h2>upload media</h2>
+        <p>photos, audio, video.</p>
+        <p><a href="https://drive.google.com/drive/folders/1rVcjffMahZgunWBBHu5vXFo3gJUlTd_s?usp=drive_link" target="_blank">open incoming &rarr;</a></p>
+      </div>
+      <div class="card">
+        <h2>browse the archive</h2>
+        <p>diary entries, sensor csvs, media.</p>
+        <p><a href="https://docs.google.com/spreadsheets/d/1RbDKCh64kaGjnXB8O4llscnZQoxkXkf_e6kJx5h7rmk/edit?usp=sharing" target="_blank">sheet &rarr;</a><br><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">drive &rarr;</a></p>
+      </div>
+    </div>
 
     <section class="readings-key">
       <h2>// what's being measured</h2>
@@ -296,32 +341,10 @@ ink at p  if  P(p) &gt; &tau;(p)  and  P(p) &gt; 0.05</pre>
     </section>
 
     <!-- ============================================================ -->
-    <!-- CONTRIBUTE (form / sheet / drive)                             -->
+    <!-- MANUAL READING TUTORIAL (lives below the recipe / build       -->
+    <!-- sections as a reference; the contribute cards live near top)  -->
     <!-- ============================================================ -->
-    <h2 id="contribute">// contribute</h2>
-    <p>each interaction with the vat (manual reading, stir, feed, observation, creative session) gets one diary entry. anyone can submit anonymously.</p>
-
-    <p class="prereq"><strong>before your first contribution:</strong> <a href="https://form.jotform.com/261258893162060" target="_blank">sign participant consent form &rarr;</a></p>
-
-    <div class="grid">
-      <div class="card">
-        <h2>submit an entry</h2>
-        <p>log a manual reading, stir, feed, or observation.</p>
-        <p><a href="https://forms.gle/jbC1ryDmDAvCvVJB6" target="_blank">open form &rarr;</a></p>
-      </div>
-      <div class="card">
-        <h2>upload media</h2>
-        <p>photos, audio, video.</p>
-        <p><a href="https://drive.google.com/drive/folders/1rVcjffMahZgunWBBHu5vXFo3gJUlTd_s?usp=drive_link" target="_blank">open incoming &rarr;</a></p>
-      </div>
-      <div class="card">
-        <h2>browse the archive</h2>
-        <p>diary entries, sensor csvs, media.</p>
-        <p><a href="https://docs.google.com/spreadsheets/d/1RbDKCh64kaGjnXB8O4llscnZQoxkXkf_e6kJx5h7rmk/edit?usp=sharing" target="_blank">sheet &rarr;</a><br><a href="https://drive.google.com/drive/folders/1y3jm0QCAe57wcfm8fttFUXLUr00CCP5D?usp=drive_link" target="_blank">drive &rarr;</a></p>
-      </div>
-    </div>
-
-    <h3>taking a manual reading with the whitebox</h3>
+    <h2 id="manual-reading">// taking a manual reading</h2>
 
     <ol class="tutorial">
       <li>
